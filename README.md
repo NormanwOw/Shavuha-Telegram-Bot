@@ -10,6 +10,7 @@ More information about start you can find here - https://core.telegram.org/bots/
 
 #Commands
 /start, /new - starting message with a 'new order' button
+/my_orders - history of user orders
 /admin - enter to the section of administration. Default password: '123'
 /personal - authorization of a new employee, after which all orders will be sent to him by Telegram. 
 The password is in the section of administration, new for each employee
