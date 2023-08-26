@@ -48,28 +48,34 @@ async def product_page(user_id, product) -> InlineKeyboardMarkup:
     return ikb
 
 
-async def staff_page() -> InlineKeyboardMarkup:
+async def employees_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
-    workers_list = await OrderDB.get_members_by_status('Повар')
-    for worker in workers_list:
-        ikb.add(InlineKeyboardButton('🚫', callback_data=f'remove_member_{worker[1]}'))
-        ikb.insert(InlineKeyboardButton(f'{worker[2]}', callback_data='None'))
+    employees_list = await OrderDB.get_id_name_by_status('Повар')
+    for employee in employees_list:
+        ikb.add(InlineKeyboardButton('🚫', callback_data=f'remove_employee_{employee[0]}'))
+        ikb.insert(InlineKeyboardButton(f'{employee[1]}', callback_data='None'))
 
     ikb.add(InlineKeyboardButton('Сменить пароль', callback_data='change_password'))
     ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
-    ikb.insert(InlineKeyboardButton('Помощь', callback_data='staff_help'))
+    ikb.insert(InlineKeyboardButton('Помощь', callback_data='employee_help'))
 
     return ikb
 
 
-async def edit_menu_page() -> InlineKeyboardMarkup:
+async def edit_menu_page(page=1) -> InlineKeyboardMarkup:
+    rows = 6
     ikb = InlineKeyboardMarkup(row_width=3)
     prices_list = await OrderDB.get_prices()
-    for product, price, url in prices_list:
+    prices_list_rows = prices_list[rows*page-rows:rows*page]
+    next_page_len = len(prices_list[rows*page+1-rows:rows*page+1])
+    for product, price, url in prices_list_rows:
         ikb.add(InlineKeyboardButton('🚫', callback_data='remove_product_'+product))
         ikb.insert(InlineKeyboardButton('🌆'+product, callback_data=f'change_image_{product}'))
         ikb.insert(InlineKeyboardButton(f'{price}₽', callback_data='change_price_'+product))
 
+    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_menu_page {page}'))
+    ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
+    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_menu_page {page} {next_page_len}'))
     ikb.add(InlineKeyboardButton('[+]', callback_data='menu_add'))
     ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
     ikb.insert(InlineKeyboardButton('Помощь', callback_data='menu_help'))

@@ -2,6 +2,7 @@ import json
 import random
 import string
 import hashlib
+import datetime
 
 TIME_ZONE = 5
 
@@ -29,7 +30,7 @@ def gen_password() -> str:
 
 def update_password() -> str:
     pw = gen_password()
-    pw_dict = {'staff': pw}
+    pw_dict = {'employee_password': pw}
     set_json('data.json', pw_dict)
     return pw
 
@@ -40,3 +41,12 @@ def generate_id() -> str:
         hash_data += string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)]
 
     return hashlib.md5(hash_data.encode()).hexdigest()
+
+
+def get_time():
+    now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+    time = now.strftime('%H:%M')
+    hour = now.hour
+    minute = now.minute
+
+    return time, hour, minute

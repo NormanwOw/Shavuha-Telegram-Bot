@@ -30,5 +30,5 @@ ikb_settings = InlineKeyboardMarkup()
 ikb_settings.add(InlineKeyboardButton('Стартовое изображение', callback_data='change_main_image'))
 ikb_settings.add(InlineKeyboardButton('Назад', callback_data='back'))
 
-ikb_staff = InlineKeyboardMarkup()
-ikb_staff.add(InlineKeyboardButton('Заказы за 24 часа', callback_data='24h_orders'))
+ikb_employees = InlineKeyboardMarkup()
+ikb_employees.add(InlineKeyboardButton('Заказы за 24 часа', callback_data='24h_orders'))

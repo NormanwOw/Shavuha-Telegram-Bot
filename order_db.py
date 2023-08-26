@@ -51,7 +51,7 @@ class OrderDB:
                 return None
 
     @classmethod
-    async def set_order(cls, user_id: int, new_order_list: dict):
+    async def add_order(cls, user_id: int, new_order_list: dict):
         order_list = await OrderDB.get_order_list(user_id)
         if order_list is None:
             new_order_list = json.dumps(new_order_list, ensure_ascii=False)
@@ -158,17 +158,17 @@ class OrderDB:
         await cls.set_price(user_id, total_price)
 
     @classmethod
-    async def update_image(cls, url: str, product):
+    async def set_image(cls, url: str, product):
         with cls.__connection:
             cls.__cursor.execute("UPDATE prices SET url = ? WHERE product =?", (url, product,))
 
     @classmethod
-    async def change_product_price(cls, product: str, price: int):
+    async def set_product_price(cls, product: str, price: int):
         with cls.__connection:
             cls.__cursor.execute("UPDATE prices SET price = ? WHERE product = ?", (price, product,))
 
     @classmethod
-    async def remove_product(cls, product: str):
+    async def delete_product(cls, product: str):
         with cls.__connection:
             cls.__cursor.execute("DELETE FROM prices WHERE product = ?", (product,))
 
@@ -176,7 +176,7 @@ class OrderDB:
 # ======================================================================================================================
 
     @classmethod
-    async def to_archive(cls, user_id: int, order_number: int, order_list: str, comment: str, price: int, time: str):
+    async def add_to_archive(cls, user_id: int, order_number: int, order_list: str, comment: str, price: int, time: str):
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO archive (order_number, user_id, order_list, comment, price, date, time) "
                                  "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
@@ -232,32 +232,47 @@ class OrderDB:
                 result = result[-10:]
             return result
 
-# STAFF TABLE
+# EMPLOYEES TABLE
 # ======================================================================================================================
 
     @classmethod
-    async def set_new_member(cls, user_id: int, full_name: str, status: str):
+    async def add_employee(cls, user_id: int, full_name: str, status: str):
         with cls.__connection:
-            cls.__cursor.execute("INSERT INTO staff (user_id, full_name, status, date) "
+            cls.__cursor.execute("INSERT INTO employees (user_id, full_name, status, date) "
                                  "VALUES (?, ?, ?, strftime('%d.%m.%Y', date('now')))",
                                  (user_id, full_name, status,))
 
     @classmethod
-    async def get_members_by_status(cls, status: str) -> list:
+    async def get_id_by_status(cls, status: str) -> list:
         with cls.__connection:
-            return [member[1] for member in cls.__cursor.execute("SELECT * FROM staff WHERE status = ?",
-                                                                 (status,)).fetchall()]
+            return [user_id[0] for user_id in cls.__cursor.execute("SELECT user_id FROM employees WHERE status = ?",
+                                                                   (status,)).fetchall()]
 
     @classmethod
-    async def remove_member(cls, user_id: int):
+    async def get_id_name_by_status(cls, status: str) -> list:
         with cls.__connection:
-            cls.__cursor.execute("DELETE FROM staff WHERE user_id = ?", (user_id,))
+            employee_list = cls.__cursor.execute("SELECT user_id, full_name FROM employees "
+                                                 "WHERE status = ?", (status,)).fetchall()
+            result = []
+
+            for employee in employee_list:
+                name = employee[1]
+                if ' ' in name:
+                    name = name.split()[0]
+                result.append((employee[0], name))
+
+            return result
+
+    @classmethod
+    async def delete_employee(cls, user_id: int):
+        with cls.__connection:
+            cls.__cursor.execute("DELETE FROM employees WHERE user_id = ? AND status = 'Повар'", (user_id,))
 
 # TEMP TABLE
 # ======================================================================================================================
 
     @classmethod
-    async def clear_temp(cls, user_id: int):
+    async def delete_temp(cls, user_id: int):
         with cls.__connection:
             cls.__cursor.execute("DELETE FROM temp WHERE user_id = ?", (user_id,))
 
@@ -272,10 +287,10 @@ class OrderDB:
         with cls.__connection:
             temp = cls.__cursor.execute("SELECT * FROM temp WHERE user_id = ?", (user_id,)).fetchone()
             order_list = {temp[1]: temp[2]}
-            await OrderDB.set_order(user_id, order_list)
+            await OrderDB.add_order(user_id, order_list)
 
     @classmethod
-    async def update_count(cls, user_id: int, count=1):
+    async def set_count(cls, user_id: int, count=1):
         with cls.__connection:
             cls.__cursor.execute("UPDATE temp SET count = ? WHERE user_id = ?", (count, user_id,))
 
@@ -289,7 +304,7 @@ class OrderDB:
                 return 1
 
     @classmethod
-    async def is_exists_temp(cls, user_id: int) -> bool:
+    async def is_temp_exists(cls, user_id: int) -> bool:
         with cls.__connection:
             try:
                 count = cls.__cursor.execute("SELECT count FROM temp WHERE user_id = ?", (user_id,)).fetchone()[0]
@@ -300,7 +315,7 @@ class OrderDB:
 # URLS TABLE
 # ======================================================================================================================
     @classmethod
-    async def update_url(cls, title: str, url: str):
+    async def set_url(cls, title: str, url: str):
         with cls.__connection:
             cls.__cursor.execute("UPDATE urls SET url = ? WHERE title = ?", (url, title,))
 
