@@ -334,6 +334,10 @@ async def callback_handler(callback: types.CallbackQuery):
     if callback.data == 'admin_menu':
         await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
 
+    if callback.data == 'admin_xlsx':
+        doc = await callbacks.get_xlsx()
+        await bot.send_document(user_id, open(doc, 'rb'))
+
     if callback.data == 'admin_settings':
         await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=ikb_settings)
 

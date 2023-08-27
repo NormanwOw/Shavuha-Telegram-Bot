@@ -88,8 +88,8 @@ async def get_24h_orders_list(message):
         await message.answer(answer)
 
 
-async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str, price: int,
-                            date: str, time: str):
+async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
+                                  price: int, date: str, time: str):
     if comment is None:
         comm = ''
     else:

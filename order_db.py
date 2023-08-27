@@ -185,6 +185,11 @@ class OrderDB:
                                  (order_number, user_id, order_list, comment, price, time))
 
     @classmethod
+    async def get_all_from_archive(cls):
+        with cls.__connection:
+            return cls.__cursor.execute("SELECT * FROM archive").fetchall()
+
+    @classmethod
     async def get_order_numbers(cls) -> list:
         with cls.__connection:
             return [i[0] for i in cls.__cursor.execute("SELECT order_number FROM archive").fetchall()]

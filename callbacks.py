@@ -1,6 +1,8 @@
+from openpyxl import Workbook
 from aiogram import types
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
+from openpyxl.styles import Alignment
 
 from config import PAY_TOKEN
 from messages import *
@@ -156,3 +158,34 @@ async def edit_menu_navigation(user_id: int, msg_id: int, callback: types.Callba
         await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.edit_menu_page(page + 1))
     elif 'prev' in callback.data and page != 1:
         await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.edit_menu_page(page - 1))
+
+
+async def get_xlsx() -> str:
+    wb = Workbook()
+    ws = wb.active
+    ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
+
+    table = ['A', 'B', 'C', 'D', 'E']
+
+    for ch in table:
+        cell = ws[f'{ch}1']
+        cell.style = 'Accent1'
+        cell.alignment = Alignment(horizontal='center')
+
+    for i, order in enumerate(await OrderDB.get_all_from_archive()):
+        ws.append([order[i] for i in [1, 4, 3, 6, 7]])
+        ws[f'C{i + 2}'].number_format = '#,## ₽'
+        ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')
+        ws[f'E{i + 2}'].alignment = Alignment(horizontal='right')
+
+    ws.column_dimensions["A"].width = 15
+    ws.column_dimensions["B"].width = 60
+    ws.column_dimensions["C"].width = 12
+    ws.column_dimensions["D"].width = 13
+    ws.column_dimensions["E"].width = 10
+
+    now = datetime.datetime.now().strftime('%d.%m.%Y')
+    name = now+'.xlsx'
+    wb.save(name)
+
+    return name
