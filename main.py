@@ -1,6 +1,6 @@
 from datetime import datetime
 import aiogram.utils.exceptions
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -10,7 +10,9 @@ from aiogram.types.message import ContentType
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
 import pages
-from config import API_TOKEN, PAY_TOKEN, ya_disk
+import callbacks
+
+from config import API_TOKEN
 from messages import *
 from functions import *
 from markups import *
@@ -42,6 +44,7 @@ class ChangeImage(StatesGroup):
 class AddProduct(StatesGroup):
     get_name = State()
     get_price = State()
+    get_desc = State()
     get_image = State()
 
 
@@ -58,11 +61,10 @@ async def start_command(message: types.Message):
     await message.delete()
 
 
-@dp.message_handler(commands=['admin'])
-async def admin_logging(message: types.Message):
+@dp.message_handler(lambda message: message.text and 'панель управления' in message.text.lower()
+                    or 'admin' in message.text.lower())
+async def admin_login(message: types.Message):
     adm_list = await OrderDB.get_id_by_status('Admin')
-    print(adm_list)
-
     if message.from_user.id in adm_list:
         await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
     else:
@@ -98,12 +100,13 @@ async def admin_backup(message: types.Message):
         ya_disk.download('/database.db', 'database.db')
 
 
-@dp.message_handler(commands=['personal'])
+@dp.message_handler(lambda message: message.text and 'список заказов' in message.text.lower()
+                    or 'personal' in message.text.lower())
 async def employee_logging(message: types.Message):
     employees_list = await OrderDB.get_id_by_status('Повар')
 
     if message.from_user.id in employees_list:
-        await message.answer(EMPLOYEE_TITLE, reply_markup=ikb_employees)
+        await get_24h_orders_list(message)
     else:
         await Logging.employee_password.set()
         await message.answer('Введите пароль:', reply_markup=ikb_cancel)
@@ -114,6 +117,7 @@ async def employee_logging(message: types.Message):
 async def check_admin_password_dialog(message: types.Message, state: FSMContext):
     if message.text == '123':
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
+        await message.answer('Успешная авторизация', reply_markup=rkb_admin)
         await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
         await state.finish()
     await message.delete()
@@ -124,7 +128,7 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
     if message.text == get_json('data.json')['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         update_password()
-        await message.answer(EMPLOYEE_MESSAGE)
+        await message.answer(EMPLOYEE_MESSAGE, reply_markup=rkb_employee)
         await state.finish()
     await message.delete()
 
@@ -159,12 +163,21 @@ async def add_product_name(message: types.Message):
 async def add_product_price(message: types.Message):
     try:
         if int(message.text) >= 0:
-            await bot.send_message(message.from_user.id, 'Введите ссылку на изображение:', reply_markup=ikb_add_image)
+            await bot.send_message(message.from_user.id, 'Введите состав:', reply_markup=ikb_cancel)
             global add_product_list
             add_product_list.append(int(message.text))
-            await AddProduct.get_image.set()
+            await AddProduct.get_desc.set()
     except ValueError:
         pass
+    await message.delete()
+
+
+@dp.message_handler(state=AddProduct.get_desc)
+async def add_product_desc(message: types.Message):
+    global add_product_list
+    add_product_list.append(message.text)
+    await bot.send_message(message.from_user.id, 'Введите ссылку на изображение:', reply_markup=ikb_add_image)
+    await AddProduct.get_image.set()
     await message.delete()
 
 
@@ -172,7 +185,7 @@ async def add_product_price(message: types.Message):
 async def add_product_image(message: types.Message, state: FSMContext):
     global add_product_list
     add_product_list.append(message.text)
-    await OrderDB.add_product(add_product_list[0], add_product_list[1], add_product_list[2])
+    await OrderDB.add_product(add_product_list[0], add_product_list[1], add_product_list[2], add_product_list[3])
     await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n'+EDIT_MENU_TITLE,
                            reply_markup=await pages.edit_menu_page())
     await state.finish()
@@ -221,11 +234,13 @@ async def message_filter(message: types.Message):
     for product in products:
         if message.text == product[0]:
             try:
-                await bot.send_photo(message.from_user.id, product[2],
-                                     caption=f'<b>{product[0]}</b>\nЦена: {product[1]}₽',
+                await bot.send_photo(message.from_user.id,
+                                     photo=product[3],
+                                     caption=f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
                                      reply_markup=await pages.product_page(message.from_user.id, product[0]))
             except aiogram.utils.exceptions.BadRequest:
-                await bot.send_message(message.from_user.id, f'<b>{product[0]}</b>\nЦена: {product[1]}₽',
+                await bot.send_message(message.from_user.id,
+                                       f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
                                        reply_markup=await pages.product_page(message.from_user.id, product[0]))
 
             await OrderDB.add_temp(message.from_user.id, product[0])
@@ -236,27 +251,23 @@ async def message_filter(message: types.Message):
 async def inline_h(query: types.InlineQuery):
     item_list = []
     for product in await OrderDB.get_prices():
+        product = list(product)
         if query.chat_type == 'sender':
             msg = InputTextMessageContent(product[0])
         else:
             msg = InputTextMessageContent(PRIVATE_MESSAGE)
-        if product[2] is None:
-            item_list.append(InlineQueryResultArticle(id=generate_id(),
-                                                      input_message_content=msg,
-                                                      title=product[0],
-                                                      description=f'Цена: {product[1]}₽'))
-        else:
-            item_list.append(InlineQueryResultArticle(id=generate_id(),
-                                                      input_message_content=msg,
-                                                      title=product[0],
-                                                      thumb_url=product[2],
-                                                      description=f'Цена: {product[1]}₽'))
+        product[2] = '' if product[2] is None else True
+        item_list.append(InlineQueryResultArticle(id=generate_id(),
+                                                  input_message_content=msg,
+                                                  title=product[0],
+                                                  thumb_url=product[3],
+                                                  description=f'Состав: {product[2]}\nЦена: {product[1]}₽'))
 
     await bot.answer_inline_query(query.id, item_list, cache_time=1)
 
 
 @dp.callback_query_handler(state=[Logging.admin_password, Logging.employee_password, ChangePrice.get_new_price,
-                                  AddProduct.get_price, AddProduct.get_image, AddProduct.get_name,
+                                  AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
                                   ChangeImage.get_new_product_image, ChangeImage.get_main_image,
                                   OrderComment.get_comment])
 async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext):
@@ -265,7 +276,7 @@ async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
     if callback.data == 'without_image':
         global add_product_list
-        await OrderDB.add_product(add_product_list[0], add_product_list[1], None)
+        await OrderDB.add_product(add_product_list[0], add_product_list[1], add_product_list[2], None)
         await bot.send_message(callback.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
                                reply_markup=await pages.edit_menu_page())
     await state.finish()
@@ -277,73 +288,93 @@ async def callback_handler(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     msg_id = callback.message.message_id
 
-    if callback.data == 'basket':
-        if await OrderDB.get_order_by_id(user_id) is None:
-            await callback.answer('Корзина пуста')
-        else:
-            await bot.send_message(user_id, await basket_title(user_id),
-                                   reply_markup=await pages.basket_menu_page(user_id))
+# BASKET PAGE CALLBACKS
+# ======================================================================================================================
 
-    if 'back_to_basket' in callback.data:
-        if 'del' in callback.data:
-            await OrderDB.delete_comment(user_id)
-            await callback.answer('Комментарий удалён')
-        await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                    reply_markup=await pages.basket_menu_page(user_id))
+    if 'set_time' in callback.data:
+        await callbacks.set_order_time(user_id, msg_id, callback, bot)
 
-    if 'basket_add' in callback.data:
-        product = callback.data[11:]
-        await OrderDB.temp_to_order(user_id)
-        await OrderDB.set_order_time(user_id, get_time()[0])
-        await callback.answer('Товар добавлен в корзину')
-        await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.product_page(user_id, product))
+    if callback.data == 'order_comment':
+        await callbacks.set_order_comment(user_id, msg_id, bot, OrderComment)
 
-    if callback.data == 'menu_add':
-        await bot.send_message(user_id, 'Введите название товара:', reply_markup=ikb_cancel)
-        await AddProduct.get_name.set()
-        await callback.answer('Добавление товара')
-
-    if '+' in callback.data or '-' in callback.data:
-        count = await OrderDB.get_count(user_id)
-        product = callback.data[1:]
-        if await OrderDB.is_temp_exists(user_id) is False:
-            await OrderDB.add_temp(user_id, product)
-        else:
-            if '+' in callback.data:
-                if count > 21:
-                    await callback.answer()
-                    return
-                await OrderDB.set_count(user_id, count + 1)
-            else:
-                if count == 1:
-                    await callback.answer()
-                    return
-                await OrderDB.set_count(user_id, count - 1)
-
-        await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.product_page(user_id, product))
+    if callback.data == 'pay':
+        await callbacks.create_invoice(user_id, msg_id, bot)
 
     if '!up' in callback.data or '!dn' in callback.data:
-        product = callback.data[4:]
-        if '!up' in callback.data:
-            count = 1
-        else:
-            count = -1
-        await OrderDB.add_order(user_id, {product: count})
+        await callbacks.basket_product_counter(user_id, msg_id, callback, bot)
 
-        if await OrderDB.get_products_count(user_id) == 0:
-            await OrderDB.clear_basket(user_id)
-            await bot.edit_message_text(EMPTY_BASKET, user_id, msg_id,
-                                        reply_markup=await pages.basket_menu_page(user_id))
-            return
+    if 'time_page' in callback.data:
+        await callbacks.set_order_time_navigation(user_id, msg_id, callback, bot)
 
-        await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.basket_menu_page(user_id))
+    if 'back_to_basket' in callback.data:
+        await callbacks.back_to_basket(user_id, msg_id, callback, bot)
 
-    if 'change_price' in callback.data:
-        global change_price_product
-        change_price_product = callback.data[13:]
-        await ChangePrice.get_new_price.set()
-        await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
-        await callback.answer('Редактирование цены')
+# ORDER PAGE CALLBACKS
+# ======================================================================================================================
+
+    if '+' in callback.data or '-' in callback.data:
+        await callbacks.order_product_counter(user_id, msg_id, callback, bot)
+
+    if 'basket_add' in callback.data:
+        await callbacks.add_to_basket(user_id, msg_id, callback, bot)
+
+    if callback.data == 'basket':
+        await callbacks.basket(user_id, callback, bot)
+
+
+# ADMIN PAGE CALLBACKS
+# ======================================================================================================================
+
+    if callback.data == 'admin_employees':
+        password = get_json('data.json')
+        await bot.edit_message_text(EMPLOYEE_TITLE +
+                                    f'\nПароль для персонала: <b>{password["employee_password"]}</b>',
+                                    user_id, msg_id, reply_markup=await pages.employees_page())
+
+    if callback.data == 'admin_menu':
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
+
+    if callback.data == 'admin_settings':
+        await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=ikb_settings)
+
+    if callback.data == 'admin_stats':
+        await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
+
+    if callback.data == 'back':
+        await bot.edit_message_text(ADMIN_TITLE, user_id, msg_id, reply_markup=ikb_admin)
+
+    if callback.data == 'change_main_image':
+        await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
+        await ChangeImage.get_main_image.set()
+        await callback.answer('Редактирование изображения')
+
+# EDIT EMPLOYEES CALLBACKS
+# ======================================================================================================================
+
+    if callback.data == 'change_password':
+        pw = update_password()
+        await bot.edit_message_text(EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
+                                    user_id, msg_id, reply_markup=await pages.employees_page())
+
+    if 'remove_employee' in callback.data:
+        employee_id = int(callback.data[16:])
+        await OrderDB.delete_employee(employee_id)
+        await bot.edit_message_text(EMPLOYEE_TITLE, user_id, msg_id, reply_markup=await pages.employees_page())
+
+    if callback.data == 'employee_help':
+        password = get_json('data.json')
+        await bot.edit_message_text(EMPLOYEE_TITLE +
+                                    f'\nПароль для персонала: <b>{password["employee_password"]}</b>\n\n' +
+                                    EMPLOYEE_HELP, user_id, msg_id, reply_markup=await pages.employees_page())
+
+# EDIT MENU CALLBACKS
+# ======================================================================================================================
+
+    if 'remove_product' in callback.data:
+        product = callback.data[15:]
+        await OrderDB.delete_product(product)
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
+        await callback.answer(f'Товар удалён', show_alert=True)
 
     if 'change_image' in callback.data:
         global change_image_product
@@ -353,159 +384,30 @@ async def callback_handler(callback: types.CallbackQuery):
         await bot.send_message(user_id, 'Введите ссылку на изображение:', reply_markup=ikb_cancel)
         await callback.answer('Редактирование изображения')
 
-    if callback.data == 'change_main_image':
-        await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
-        await ChangeImage.get_main_image.set()
-        await callback.answer('Редактирование изображения')
+    if 'change_price' in callback.data:
+        global change_price_product
+        change_price_product = callback.data[13:]
+        await ChangePrice.get_new_price.set()
+        await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
+        await callback.answer('Редактирование цены')
 
-    if callback.data == 'settings':
-        await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=ikb_settings)
+    if callback.data == 'menu_add':
+        await bot.send_message(user_id, 'Введите название товара:', reply_markup=ikb_cancel)
+        await AddProduct.get_name.set()
+        await callback.answer('Добавление товара')
 
     if callback.data == 'menu_help':
         await bot.edit_message_text(EDIT_MENU_TITLE+'\n'+MENU_HELP, user_id, msg_id,
                                     reply_markup=await pages.edit_menu_page())
 
-    if callback.data == 'employee_help':
-        password = get_json('data.json')
-        await bot.edit_message_text(EMPLOYEE_TITLE +
-                                    f'\nПароль для персонала: <b>{password["employee_password"]}</b>\n\n' +
-                                    EMPLOYEE_HELP, user_id, msg_id, reply_markup=await pages.employees_page())
-
-    if 'set_time' in callback.data:
-        if callback.data == 'set_time':
-            _, hour, minute = get_time()
-            await bot.edit_message_text(SET_TIME_MESSAGE, user_id, msg_id,
-                                        reply_markup=await pages.set_time_page(user_id, hour, minute))
-            await OrderDB.set_order_time(user_id, get_time()[0])
-        elif callback.data == 'cancel_set_time':
-            if await OrderDB.get_order_user_time(user_id) is None:
-                await callback.answer()
-                return
-
-            await OrderDB.set_order_user_time(user_id, None)
-            await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                        reply_markup=await pages.basket_menu_page(user_id))
-
-            await callback.answer('Точное время отменено')
-        else:
-            time = callback.data[9:]
-            await callback.answer(time)
-            await OrderDB.set_order_user_time(user_id, time)
-            await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                        reply_markup=await pages.basket_menu_page(user_id))
-
-    if 'time_page' in callback.data:
-        _, hour, minute = get_time()
-        if 'next' in callback.data:
-            hour += 6
-        try:
-            await bot.edit_message_reply_markup(user_id, msg_id,
-                                                reply_markup=await pages.set_time_page(user_id, hour, minute))
-        except aiogram.utils.exceptions.MessageNotModified:
-            await callback.answer()
-            return
-
-    if 'next_menu_page' in callback.data:
-        data = callback.data.split()
-        page = int(data[1])
-        next_page_len = int(data[2])
-        print(next_page_len)
-        if next_page_len != 0:
-            await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.edit_menu_page(page+1))
-
-    if callback.data == 'order_comment':
-        if await OrderDB.get_comment(user_id) is None:
-            await bot.send_message(user_id, 'Комментарий к заказу:', reply_markup=ikb_cancel)
-            await OrderComment.get_comment.set()
-        else:
-            await bot.edit_message_text(await order_comment_title(user_id), user_id, msg_id,
-                                        reply_markup=await pages.comment_page())
-
-    if callback.data == 'pay':
-        data = await OrderDB.get_order_by_id(user_id)
-        try:
-            order_list = json.loads(data[2])
-        except TypeError:
-            await bot.delete_message(user_id, msg_id)
-            return
-        order_prices = []
-
-        prices = await OrderDB.get_prices()
-        desc = ''
-        for item in order_list:
-            for i in prices:
-                if i[0] == item:
-                    p = i[1]
-            cnt = order_list[item]
-            label = item + f' - {cnt}шт.'
-            lp = LabeledPrice(label=label, amount=p * cnt * 100)
-            order_prices.append(lp)
-
-            desc += f' ▫️ {item}'
-        await bot.send_invoice(user_id,
-                               title='Заказ',
-                               description=desc,
-                               provider_token=PAY_TOKEN,
-                               currency='rub',
-                               is_flexible=True,
-                               start_parameter='example',
-                               payload=order_list,
-                               prices=order_prices,
-                               need_shipping_address=False)
-
-    if callback.data == 'admin_s':
-        password = get_json('data.json')
-        await bot.edit_message_text(EMPLOYEE_TITLE +
-                                    f'\nПароль для персонала: <b>{password["employee_password"]}</b>',
-                                    user_id, msg_id, reply_markup=await pages.employees_page())
-
-    if callback.data == 'admin_m':
-        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
-
-    if callback.data == 'admin_stats':
-        await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
-
-    if callback.data == 'back':
-        await bot.edit_message_text(ADMIN_TITLE, user_id, msg_id, reply_markup=ikb_admin)
-
-    if 'remove_employee' in callback.data:
-        employee_id = int(callback.data[16:])
-        await OrderDB.delete_employee(employee_id)
-        await bot.edit_message_text(EMPLOYEE_TITLE, user_id, msg_id, reply_markup=await pages.employees_page())
-
-    if 'remove_product' in callback.data:
-        product = callback.data[15:]
-        await OrderDB.delete_product(product)
-        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
-        await callback.answer(f'Товар удалён', show_alert=True)
-
-    if callback.data == 'change_password':
-        pw = update_password()
-        await bot.edit_message_text(EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
-                                    user_id, msg_id, reply_markup=await pages.employees_page())
-
-    if callback.data == '24h_orders':
-        orders_24 = await OrderDB.get_orders_24h()
-        if len(orders_24) == 0:
-            await callback.message.answer('Список заказов пуст')
-        else:
-            order = ''
-            answer = ''
-            for order_number, price, order_list, comment, date, time in orders_24:
-                if comment is not None:
-                    comment = f'Комментарий: {comment} | '
-                else:
-                    comment = ''
-                order_list = json.loads(order_list.replace('\'', '"'))
-
-                for product in order_list:
-                    order += f'{product}: {order_list[product]} '
-                answer += f'<b>Заказ №<u>{order_number}</u></b> | {order}| ' \
-                          f'Оплата: {int(price)}₽ | {comment}{date} {time}\n\n'
-            await callback.message.answer(answer)
+    if 'menu_page' in callback.data:
+        await callbacks.edit_menu_navigation(user_id, msg_id, callback, bot)
 
     await callback.answer()
 
+
+# PAYMENT
+# ======================================================================================================================
 
 @dp.shipping_query_handler()
 async def shipping_process(shipping_query: ShippingQuery):
@@ -520,8 +422,8 @@ async def checkout_process(pre_checkout_query: PreCheckoutQuery):
 
 @dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
 async def successful_payment(message: types.Message):
-    order_number = random.randint(100000, 999999)
-    price = int(message.successful_payment.total_amount) / 100
+    order_number = await generate_order_number()
+    price = int(int(message.successful_payment.total_amount) / 100)
     date = datetime.datetime.today().strftime("%d.%m.%Y")
     time = await OrderDB.get_order_time(message.from_user.id)
     cur = message.successful_payment.currency
@@ -529,50 +431,25 @@ async def successful_payment(message: types.Message):
     comment = await OrderDB.get_comment(message.from_user.id)
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
 
-    while order_number in await OrderDB.get_order_numbers():
-        order_number += 1
-        if order_number > 999999:
-            order_number = random.randint(100000, 999999)
-
     await message.answer(SUCCESSFUL_MESSAGE.format(order_number=order_number,
                                                    cur=cur,
                                                    amount=str(price)))
     await OrderDB.clear_basket(message.from_user.id)
 
     if order_user_time is not None:
-        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, int(price), order_user_time)
+        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, price,
+                                     order_user_time)
         user_time_str = f'\n⏱ <b>Приготовить к {order_user_time}</b>\n'
     else:
-        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, int(price), time)
+        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, price, time)
         user_time_str = ''
 
     print('{'+f'"user_id": {message.from_user.id}, "order_number": {order_number}, "order_list": {order_list}, '
               f'"price": {price}{cur}, "order_user_time": {order_user_time}, "comment": {comment}, "date": '
               f'{date}, "time": {time}'+'}')
-    order_str = ''
-    order = json.loads(order_list.replace('\'', '"'))
-    if comment is None:
-        comment = ''
-    else:
-        comment = f'\n\n✏ Комментарий: {comment}'
-    for cook in await OrderDB.get_id_by_status('Повар'):
-        for product in order:
-            order_str += f'\n ▫️ {product}: {order[product]}'
-        await bot.send_message(cook,
-                               f'<b>Заказ №<u>{order_number}</u></b>'+user_time_str+order_str+f'\n'
-                               f'__________\n'
-                               f'{int(price)}₽'+comment+f'\n\n'
-                               f'{date} {time}')
-    data = get_json('data.json')
-    last_backup = data['backup']
-    d = datetime.datetime.strptime(last_backup, '%d.%m.%Y')
-    t = datetime.datetime.today()
-    delta = d - t
-    if delta.days < -3:
-        ya_disk.remove('/database.db')
-        ya_disk.upload('database.db', '/database.db')
-        data['backup'] = date
-        set_json('data.json', data)
+
+    await send_order_to_employees(comment, order_list, bot, order_number, user_time_str, price, date, time)
+    await backup(date)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

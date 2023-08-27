@@ -130,14 +130,15 @@ class OrderDB:
 # PRICES TABLE
 # ======================================================================================================================
     @classmethod
-    async def add_product(cls, product: str, price: int, url: str or None):
+    async def add_product(cls, product: str, price: int, desc: str, url: str or None):
         with cls.__connection:
-            cls.__cursor.execute("INSERT INTO prices (product, price, url) VALUES (?, ?, ?)", (product, price, url,))
+            cls.__cursor.execute("INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
+                                 (product, price, desc, url,))
 
     @classmethod
     async def get_prices(cls) -> list:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT product, price, url FROM prices").fetchall()
+            return cls.__cursor.execute("SELECT product, price, desc, url FROM prices").fetchall()
 
     @classmethod
     async def get_price_by_product_name(cls, product: str) -> int:
@@ -176,7 +177,8 @@ class OrderDB:
 # ======================================================================================================================
 
     @classmethod
-    async def add_to_archive(cls, user_id: int, order_number: int, order_list: str, comment: str, price: int, time: str):
+    async def add_to_archive(cls, user_id: int, order_number: int, order_list:
+                             str, comment: str, price: int, time: str):
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO archive (order_number, user_id, order_list, comment, price, date, time) "
                                  "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
