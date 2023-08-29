@@ -130,7 +130,8 @@ class OrderDB:
 # PRICES TABLE
 # ======================================================================================================================
     @classmethod
-    async def add_product(cls, product: str, price: int, desc: str, url: str or None):
+    async def add_product(cls, product_list: list):
+        product, price, desc, url = product_list
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
                                  (product, price, desc, url,))
@@ -159,12 +160,17 @@ class OrderDB:
         await cls.set_price(user_id, total_price)
 
     @classmethod
-    async def set_image(cls, url: str, product):
+    async def set_product_desc(cls, desc: str, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET url = ? WHERE product =?", (url, product,))
+            cls.__cursor.execute("UPDATE prices SET desc = ? WHERE product = ?", (desc, product,))
 
     @classmethod
-    async def set_product_price(cls, product: str, price: int):
+    async def set_product_image(cls, url: str, product: str):
+        with cls.__connection:
+            cls.__cursor.execute("UPDATE prices SET url = ? WHERE product = ?", (url, product,))
+
+    @classmethod
+    async def set_product_price(cls, price: int, product: str):
         with cls.__connection:
             cls.__cursor.execute("UPDATE prices SET price = ? WHERE product = ?", (price, product,))
 

@@ -1,11 +1,10 @@
 from datetime import datetime
+
 import aiogram.utils.exceptions
 from aiogram import Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ShippingQuery, LabeledPrice, \
-    PreCheckoutQuery, ShippingOption
+from aiogram.types import ShippingQuery, LabeledPrice, PreCheckoutQuery, ShippingOption
 from aiogram.types.message import ContentType
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
@@ -16,40 +15,28 @@ from config import API_TOKEN
 from messages import *
 from functions import *
 from markups import *
+from states import *
 from order_db import OrderDB
 
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-change_price_product = ''
-change_image_product = ''
-add_product_list = []
 
+class ProductList:
+    product_list = []
 
-class Logging(StatesGroup):
-    admin_password = State()
-    employee_password = State()
+    @classmethod
+    async def append_product_list(cls, product):
+        cls.product_list.append(product)
 
+    @classmethod
+    async def get_product_list(cls):
+        return cls.product_list
 
-class ChangePrice(StatesGroup):
-    get_new_price = State()
-
-
-class ChangeImage(StatesGroup):
-    get_new_product_image = State()
-    get_main_image = State()
-
-
-class AddProduct(StatesGroup):
-    get_name = State()
-    get_price = State()
-    get_desc = State()
-    get_image = State()
-
-
-class OrderComment(StatesGroup):
-    get_comment = State()
+    @classmethod
+    async def clear_product_list(cls):
+        cls.product_list.clear()
 
 
 @dp.message_handler(commands=['start', 'new'])
@@ -133,17 +120,38 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
     await message.delete()
 
 
-@dp.message_handler(state=ChangePrice.get_new_price)
-async def change_price_dialog(message: types.Message, state: FSMContext):
+@dp.message_handler(state=ChangeProduct.get_new_desc)
+async def change_product_desc(message: types.Message, state: FSMContext):
+    product = await ChangeProduct.get_product()
+    await OrderDB.set_product_desc(message.text, product)
+    await bot.send_message(message.from_user.id, '✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
+                           reply_markup=await pages.edit_menu_page(False))
+    await state.finish()
+    await message.delete()
+
+
+@dp.message_handler(state=ChangeProduct.get_new_product_image)
+async def change_product_image(message: types.Message, state: FSMContext):
+    try:
+        await bot.send_photo(message.from_user.id, photo=message.text)
+        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n'+EDIT_MENU_TITLE,
+                               reply_markup=await pages.edit_menu_page(False))
+        await OrderDB.set_product_image(message.text, await ChangeProduct.get_product())
+        await state.finish()
+    except (aiogram.utils.exceptions.WrongFileIdentifier, aiogram.utils.exceptions.BadRequest, TypeError):
+        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение ненайдено', reply_markup=ikb_cancel)
+    await message.delete()
+
+
+@dp.message_handler(state=ChangeProduct.get_new_price)
+async def change_product_price(message: types.Message, state: FSMContext):
     if len(message.text) < 6:
-        global change_price_product
         for ch in message.text:
             if ch not in string.digits:
                 return
-        await OrderDB.set_product_price(change_price_product, int(message.text))
-        change_price_product = ''
+        await OrderDB.set_product_price(int(message.text), await ChangeProduct.get_product())
         await bot.send_message(message.from_user.id, '✅ Цена изменена\n\n'+EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page())
+                               reply_markup=await pages.edit_menu_page(False))
         await state.finish()
     await message.delete()
 
@@ -152,9 +160,7 @@ async def change_price_dialog(message: types.Message, state: FSMContext):
 async def add_product_name(message: types.Message):
     if len(message.text) > 1:
         await bot.send_message(message.from_user.id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
-        global add_product_list
-        add_product_list.clear()
-        add_product_list.append(message.text)
+        await ProductList.append_product_list(message.text)
         await AddProduct.get_price.set()
     await message.delete()
 
@@ -164,8 +170,7 @@ async def add_product_price(message: types.Message):
     try:
         if int(message.text) >= 0:
             await bot.send_message(message.from_user.id, 'Введите состав:', reply_markup=ikb_cancel)
-            global add_product_list
-            add_product_list.append(int(message.text))
+            await ProductList.append_product_list(int(message.text))
             await AddProduct.get_desc.set()
     except ValueError:
         pass
@@ -174,8 +179,7 @@ async def add_product_price(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_desc)
 async def add_product_desc(message: types.Message):
-    global add_product_list
-    add_product_list.append(message.text)
+    await ProductList.append_product_list(message.text)
     await bot.send_message(message.from_user.id, 'Введите ссылку на изображение:', reply_markup=ikb_add_image)
     await AddProduct.get_image.set()
     await message.delete()
@@ -183,29 +187,16 @@ async def add_product_desc(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_image)
 async def add_product_image(message: types.Message, state: FSMContext):
-    global add_product_list
-    add_product_list.append(message.text)
-    await OrderDB.add_product(add_product_list[0], add_product_list[1], add_product_list[2], add_product_list[3])
+    await ProductList.append_product_list(message.text)
+    await OrderDB.add_product(await ProductList.get_product_list())
     await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n'+EDIT_MENU_TITLE,
-                           reply_markup=await pages.edit_menu_page())
+                           reply_markup=await pages.edit_menu_page(False))
+    await ProductList.clear_product_list()
     await state.finish()
     await message.delete()
 
 
-@dp.message_handler(state=ChangeImage.get_new_product_image)
-async def change_product_image(message: types.Message, state: FSMContext):
-    try:
-        await bot.send_photo(message.from_user.id, photo=message.text)
-        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n'+EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page())
-        await OrderDB.set_image(message.text, change_image_product)
-        await state.finish()
-    except (aiogram.utils.exceptions.WrongFileIdentifier, aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение ненайдено', reply_markup=ikb_cancel)
-    await message.delete()
-
-
-@dp.message_handler(state=ChangeImage.get_main_image)
+@dp.message_handler(state=ChangeMainImage.get_main_image)
 async def change_main_image(message: types.Message, state: FSMContext):
     try:
         await bot.send_photo(message.from_user.id, photo=message.text)
@@ -219,7 +210,7 @@ async def change_main_image(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=OrderComment.get_comment)
-async def change_main_image(message: types.Message, state: FSMContext):
+async def set_comment(message: types.Message, state: FSMContext):
     await OrderDB.set_comment(message.from_user.id, message.text)
     await state.finish()
     await message.delete()
@@ -256,7 +247,8 @@ async def inline_h(query: types.InlineQuery):
             msg = InputTextMessageContent(product[0])
         else:
             msg = InputTextMessageContent(PRIVATE_MESSAGE)
-        product[2] = '' if product[2] is None else True
+        if product[2] is None:
+            product[2] = ''
         item_list.append(InlineQueryResultArticle(id=generate_id(),
                                                   input_message_content=msg,
                                                   title=product[0],
@@ -266,19 +258,21 @@ async def inline_h(query: types.InlineQuery):
     await bot.answer_inline_query(query.id, item_list, cache_time=1)
 
 
-@dp.callback_query_handler(state=[Logging.admin_password, Logging.employee_password, ChangePrice.get_new_price,
+@dp.callback_query_handler(state=[Logging.admin_password, Logging.employee_password, ChangeProduct.get_new_desc,
+                                  ChangeProduct.get_new_product_image, ChangeProduct.get_new_price,
                                   AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
-                                  ChangeImage.get_new_product_image, ChangeImage.get_main_image,
-                                  OrderComment.get_comment])
+                                  ChangeMainImage.get_main_image, OrderComment.get_comment])
 async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == 'cancel':
         await callback.answer('Ввод отменён', show_alert=True)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
     if callback.data == 'without_image':
-        global add_product_list
-        await OrderDB.add_product(add_product_list[0], add_product_list[1], add_product_list[2], None)
+        product_list = await ProductList.get_product_list()
+        if len(product_list) == 3:
+            product_list.append(None)
+        await OrderDB.add_product(product_list)
         await bot.send_message(callback.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page())
+                               reply_markup=await pages.edit_menu_page(False))
     await state.finish()
     await callback.answer()
 
@@ -332,7 +326,7 @@ async def callback_handler(callback: types.CallbackQuery):
                                     user_id, msg_id, reply_markup=await pages.employees_page())
 
     if callback.data == 'admin_menu':
-        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(False))
 
     if callback.data == 'admin_xlsx':
         doc = await callbacks.get_xlsx()
@@ -349,7 +343,7 @@ async def callback_handler(callback: types.CallbackQuery):
 
     if callback.data == 'change_main_image':
         await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
-        await ChangeImage.get_main_image.set()
+        await ChangeMainImage.get_main_image.set()
         await callback.answer('Редактирование изображения')
 
 # EDIT EMPLOYEES CALLBACKS
@@ -374,24 +368,24 @@ async def callback_handler(callback: types.CallbackQuery):
 # EDIT MENU CALLBACKS
 # ======================================================================================================================
 
-    if 'remove_product' in callback.data:
-        product = callback.data[15:]
-        await OrderDB.delete_product(product)
-        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page())
-        await callback.answer(f'Товар удалён', show_alert=True)
+    if 'change_desc' in callback.data:
+        product = callback.data[12:]
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_desc.set()
+        await bot.send_message(user_id, 'Введите описание товара (состав):', reply_markup=ikb_cancel)
+        await callback.answer('Редактирование описания')
 
     if 'change_image' in callback.data:
-        global change_image_product
         product = callback.data[13:]
-        change_image_product = product
-        await ChangeImage.get_new_product_image.set()
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_product_image.set()
         await bot.send_message(user_id, 'Введите ссылку на изображение:', reply_markup=ikb_cancel)
         await callback.answer('Редактирование изображения')
 
     if 'change_price' in callback.data:
-        global change_price_product
-        change_price_product = callback.data[13:]
-        await ChangePrice.get_new_price.set()
+        product = callback.data[13:]
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_price.set()
         await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
         await callback.answer('Редактирование цены')
 
@@ -400,12 +394,25 @@ async def callback_handler(callback: types.CallbackQuery):
         await AddProduct.get_name.set()
         await callback.answer('Добавление товара')
 
+    if callback.data == 'menu_delete':
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
+
     if callback.data == 'menu_help':
         await bot.edit_message_text(EDIT_MENU_TITLE+'\n'+MENU_HELP, user_id, msg_id,
-                                    reply_markup=await pages.edit_menu_page())
+                                    reply_markup=await pages.edit_menu_page(False))
 
     if 'menu_page' in callback.data:
-        await callbacks.edit_menu_navigation(user_id, msg_id, callback, bot)
+        del_product = True if 'True' in callback.data else False
+        await callbacks.edit_menu_navigation(user_id, msg_id, callback, bot, del_product)
+
+    if 'remove_product' in callback.data:
+        product = callback.data[15:]
+        await OrderDB.delete_product(product)
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
+        await callback.answer(f'Товар удалён', show_alert=True)
+
+    if callback.data == 'back_to_edit_menu':
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(False))
 
     await callback.answer()
 

@@ -62,23 +62,33 @@ async def employees_page() -> InlineKeyboardMarkup:
     return ikb
 
 
-async def edit_menu_page(page=1) -> InlineKeyboardMarkup:
+async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
     rows = 6
     ikb = InlineKeyboardMarkup(row_width=3)
     prices_list = await OrderDB.get_prices()
     prices_list_rows = prices_list[rows*page-rows:rows*page]
     next_page_len = len(prices_list[rows*page+1-rows:rows*page+1])
-    for product, price, desc, url in prices_list_rows:
-        ikb.add(InlineKeyboardButton('🚫', callback_data='remove_product_'+product))
-        ikb.insert(InlineKeyboardButton('🌆'+product, callback_data=f'change_image_{product}'))
-        ikb.insert(InlineKeyboardButton(f'{price}₽', callback_data='change_price_'+product))
 
-    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_menu_page {page} {next_page_len}'))
+    for product, price, desc, url in prices_list_rows:
+        if del_product:
+            ikb.add(InlineKeyboardButton('🚫', callback_data='remove_product_' + product))
+            ikb.insert(InlineKeyboardButton(product, callback_data='None'))
+        else:
+            ikb.add(InlineKeyboardButton('✏ ', callback_data='change_desc_'+product))
+            ikb.insert(InlineKeyboardButton('🌆'+product, callback_data=f'change_image_{product}'))
+            ikb.insert(InlineKeyboardButton(f'{price}₽', callback_data='change_price_'+product))
+
+    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_menu_page {page} {next_page_len} {del_product}'))
     ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
-    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_menu_page {page} {next_page_len}'))
-    ikb.add(InlineKeyboardButton('[+]', callback_data='menu_add'))
-    ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
-    ikb.insert(InlineKeyboardButton('Помощь', callback_data='menu_help'))
+    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_menu_page {page} {next_page_len} {del_product}'))
+
+    if del_product:
+        ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_edit_menu'))
+    else:
+        ikb.add(InlineKeyboardButton('Удалить товар', callback_data='menu_delete'))
+        ikb.insert(InlineKeyboardButton('Добавить товар', callback_data='menu_add'))
+        ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
+        ikb.insert(InlineKeyboardButton('Помощь', callback_data='menu_help'))
 
     return ikb
 

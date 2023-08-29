@@ -138,6 +138,8 @@ async def create_invoice(user_id: int, msg_id: int, bot: Bot):
         order_prices.append(lp)
 
         desc += f' ▫️ {item}'
+
+        print(order_list, order_prices)
     await bot.send_invoice(user_id,
                            title='Заказ',
                            description=desc,
@@ -150,14 +152,16 @@ async def create_invoice(user_id: int, msg_id: int, bot: Bot):
                            need_shipping_address=False)
 
 
-async def edit_menu_navigation(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+async def edit_menu_navigation(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot, del_product: bool):
     data = callback.data.split()
     page = int(data[1])
     next_page_len = int(data[2])
     if 'next' in callback.data and next_page_len > 1:
-        await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.edit_menu_page(page + 1))
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
+                                    reply_markup=await pages.edit_menu_page(del_product, page + 1))
     elif 'prev' in callback.data and page != 1:
-        await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.edit_menu_page(page - 1))
+        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
+                                    reply_markup=await pages.edit_menu_page(del_product, page - 1))
 
 
 async def get_xlsx() -> str:

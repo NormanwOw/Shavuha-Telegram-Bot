@@ -16,8 +16,10 @@ ikb_cancel.add(InlineKeyboardButton('Отмена', callback_data='cancel'))
 ikb_admin = InlineKeyboardMarkup()
 ikb_admin.row(InlineKeyboardButton('Персонал', callback_data='admin_employees'),
               InlineKeyboardButton('Редактор меню', callback_data='admin_menu'))
+
+ikb_admin.row(InlineKeyboardButton('Статистика', callback_data='admin_stats'),
+              InlineKeyboardButton('Рассылки', callback_data='admin_sending'))
 ikb_admin.add(InlineKeyboardButton('История заказов .xlsx', callback_data='admin_xlsx'))
-ikb_admin.add(InlineKeyboardButton('Статистика', callback_data='admin_stats'))
 ikb_admin.add(InlineKeyboardButton('Настройки', callback_data='admin_settings'))
 
 rkb_admin = ReplyKeyboardMarkup(resize_keyboard=True)
