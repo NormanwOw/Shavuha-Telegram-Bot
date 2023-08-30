@@ -70,11 +70,7 @@ async def my_orders(message: types.Message):
     elif len(user_orders) == 0:
         title = 'Список заказов пуст'
     for order_number, price, order_list, date, time in user_orders:
-        order_list = json.loads(order_list.replace('\'', '"'))
-        order = ''
-        for product in order_list:
-            order += f'{product}: {order_list[product]} '
-        answer += f'<b>Заказ №<u>{order_number}</u></b>\n{order}- Оплата: {int(price)}₽\n[{date} {time}]\n\n'
+        answer += f'<b>Заказ №<u>{order_number}</u></b>\n{order_list}- Оплата: {int(price)}₽\n[{date} {time}]\n\n'
     await message.answer(title+answer)
     await message.delete()
 
@@ -90,6 +86,7 @@ async def admin_backup(message: types.Message):
 @dp.message_handler(commands=['error'])
 async def get_error_msg(message: types.Message):
     await message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
+    await message.delete()
     await ErrorHandler.get_error.set()
 
 
