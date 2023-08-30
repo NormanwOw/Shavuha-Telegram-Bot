@@ -127,6 +127,7 @@ async def create_invoice(user_id: int, msg_id: int, bot: Bot):
 
     prices = await OrderDB.get_prices()
     desc = ''
+    p = ''
     for item in order_list:
         for i in prices:
             if i[0] == item:
@@ -191,3 +192,13 @@ async def get_xlsx() -> str:
     wb.save(name)
 
     return name
+
+
+async def state_bot(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    if 'off' in callback.data:
+        set_json('data.json', {'state': 0})
+        await callback.answer('Приём заказов остановлен', show_alert=True)
+    else:
+        set_json('data.json', {'state': 1})
+        await callback.answer('Приём заказов запущен', show_alert=True)
+    await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())

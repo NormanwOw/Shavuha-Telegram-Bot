@@ -38,3 +38,7 @@ class OrderComment(StatesGroup):
 
 class ErrorHandler(StatesGroup):
     get_error = State()
+
+
+class Mail(StatesGroup):
+    new_mail = State()

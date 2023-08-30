@@ -10,6 +10,7 @@ from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
 import pages
 import callbacks
+import commands
 
 from config import API_TOKEN
 from messages import *
@@ -21,6 +22,8 @@ from order_db import OrderDB
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
+
+
 
 
 class ProductList:
@@ -41,53 +44,28 @@ class ProductList:
 
 @dp.message_handler(commands=['start', 'new'])
 async def start_command(message: types.Message):
-    await bot.send_photo(message.from_user.id,
-                         await OrderDB.get_url('main_image'),
-                         caption=MAIN_PAGE, reply_markup=ikb)
-    await OrderDB.clear_basket(message.from_user.id)
-    await message.delete()
+    await commands.start_command(bot, message)
 
 
 @dp.message_handler(lambda message: message.text and 'панель управления' in message.text.lower()
                     or 'admin' in message.text.lower())
 async def admin_login(message: types.Message):
-    adm_list = await OrderDB.get_id_by_status('Admin')
-    if message.from_user.id in adm_list:
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
-    else:
-        await Logging.admin_password.set()
-        await message.answer('Введите пароль:', reply_markup=ikb_cancel)
-    await message.delete()
+    await commands.admin_login(message)
 
 
 @dp.message_handler(commands=['my_orders'])
 async def my_orders(message: types.Message):
-    answer = ''
-    title = ''
-    user_orders = await OrderDB.get_user_orders(message.from_user.id)
-    if len(user_orders) == 10:
-        title = '<b>Последние 10 заказов</b>\n\n'
-    elif len(user_orders) == 0:
-        title = 'Список заказов пуст'
-    for order_number, price, order_list, date, time in user_orders:
-        answer += f'<b>Заказ №<u>{order_number}</u></b>\n{order_list}- Оплата: {int(price)}₽\n[{date} {time}]\n\n'
-    await message.answer(title+answer)
-    await message.delete()
+    await commands.my_orders(message)
 
 
 @dp.message_handler(commands=['backup'])
 async def admin_backup(message: types.Message):
-    adm_list = await OrderDB.get_id_by_status('Admin')
-    await message.delete()
-    if message.from_user.id in adm_list:
-        ya_disk.download('/database.db', 'database.db')
+    await commands.admin_backup(message)
 
 
 @dp.message_handler(commands=['error'])
 async def get_error_msg(message: types.Message):
-    await message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
-    await message.delete()
-    await ErrorHandler.get_error.set()
+    await commands.get_error_msg(message)
 
 
 @dp.message_handler(lambda message: message.text and 'список заказов' in message.text.lower()
@@ -204,7 +182,7 @@ async def change_main_image(message: types.Message, state: FSMContext):
     try:
         await bot.send_photo(message.from_user.id, photo=message.text)
         await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n'+SETTINGS_TITLE,
-                               reply_markup=ikb_settings)
+                               reply_markup=await pages.settings_page())
         await OrderDB.set_url('main_image', message.text)
         await state.finish()
     except (aiogram.utils.exceptions.WrongFileIdentifier, aiogram.utils.exceptions.BadRequest, TypeError):
@@ -226,6 +204,16 @@ async def get_error_handler(message: types.Message, state: FSMContext):
     if len(message.text) > 5:
         await error_to_db(message, bot)
         await state.finish()
+    await message.delete()
+
+
+@dp.message_handler(state=Mail.new_mail)
+async def get_mail_msg(message: types.Message, state: FSMContext):
+    if len(message.text) > 5:
+        await OrderDB.insert_mail(message.text)
+        mail_id, mail_text = await OrderDB.get_mail()
+        await state.finish()
+        await message.answer(mail_text, reply_markup=await pages.my_mails(int(mail_id)))
     await message.delete()
 
 
@@ -251,28 +239,32 @@ async def message_filter(message: types.Message):
 
 @dp.inline_handler(text='#menu')
 async def inline_h(query: types.InlineQuery):
-    item_list = []
-    for product in await OrderDB.get_prices():
-        product = list(product)
-        if query.chat_type == 'sender':
-            msg = InputTextMessageContent(product[0])
-        else:
-            msg = InputTextMessageContent(PRIVATE_MESSAGE)
-        if product[2] is None:
-            product[2] = ''
-        item_list.append(InlineQueryResultArticle(id=generate_id(),
-                                                  input_message_content=msg,
-                                                  title=product[0],
-                                                  thumb_url=product[3],
-                                                  description=f'Состав: {product[2]}\nЦена: {product[1]}₽'))
+    if get_json('data.json')['state']:
+        item_list = []
+        for product in await OrderDB.get_prices():
+            product = list(product)
+            if query.chat_type == 'sender':
+                msg = InputTextMessageContent(product[0])
+            else:
+                msg = InputTextMessageContent(PRIVATE_MESSAGE)
+            if product[2] is None:
+                product[2] = ''
+            item_list.append(InlineQueryResultArticle(id=generate_id(),
+                                                      input_message_content=msg,
+                                                      title=product[0],
+                                                      thumb_url=product[3],
+                                                      description=f'Состав: {product[2]}\nЦена: {product[1]}₽'))
 
-    await bot.answer_inline_query(query.id, item_list, cache_time=1)
+        await bot.answer_inline_query(query.id, item_list, cache_time=1)
+    else:
+        await bot.send_message(query.from_user.id, PAUSE_MESSAGE)
 
 
 @dp.callback_query_handler(state=[Logging.admin_password, Logging.employee_password, ChangeProduct.get_new_desc,
                                   ChangeProduct.get_new_product_image, ChangeProduct.get_new_price,
                                   AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
-                                  ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error])
+                                  ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error,
+                                  Mail.new_mail])
 async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == 'cancel':
         await callback.answer('Ввод отменён', show_alert=True)
@@ -348,10 +340,57 @@ async def callback_handler(callback: types.CallbackQuery):
         await ErrorHandler.get_error.set()
 
     if callback.data == 'admin_settings':
-        await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=ikb_settings)
+        await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=await pages.settings_page())
+
+    if 'state_bot' in callback.data:
+        await callbacks.state_bot(user_id, msg_id, callback, bot)
 
     if callback.data == 'admin_stats':
         await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
+
+    if callback.data == 'admin_mails':
+        await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
+
+    if callback.data == 'my_mails':
+        try:
+            mail_id, mail_text = await OrderDB.get_mail()
+            await bot.edit_message_text(mail_text, user_id, msg_id, reply_markup=await pages.my_mails(mail_id))
+        except TypeError:
+            await callback.answer('Список рассылок пуст')
+
+    if callback.data == 'create_mail':
+        await Mail.new_mail.set()
+        await bot.send_message(user_id, 'Введите текст рассылки', reply_markup=ikb_cancel)
+
+    if callback.data == 'mails_help':
+        await bot.edit_message_text(MAILS_TITLE + MAILS_HELP, user_id, msg_id, reply_markup=await pages.mails_page())
+
+    if 'delete_mail' in callback.data:
+        if 'yes' in callback.data:
+            state = await OrderDB.delete_mail()
+            await callback.answer('Рассылка удалена', show_alert=True)
+            if state:
+                mail_id, mail_text = await OrderDB.get_mail()
+                await bot.edit_message_text(mail_text, user_id, msg_id,
+                                            reply_markup=await pages.my_mails(mail_id))
+            else:
+                await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
+        elif 'no' in callback.data:
+            await callback.answer('Удаление отменено', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+        else:
+            await bot.send_message(user_id, 'Удалить рассылку?', reply_markup=ikb_del_mail)
+
+    if 'send_mail' in callback.data:
+        if 'yes' in callback.data:
+            pass
+        elif 'no' in callback.data:
+            await callback.answer('Отправление отменено', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+        else:
+            mail_text = await OrderDB.get_mail()
+            await bot.send_message(user_id, SEND_MAIL+mail_text[1],
+                                   reply_markup=ikb_send_mail)
 
     if callback.data == 'back':
         await bot.edit_message_text(ADMIN_TITLE, user_id, msg_id, reply_markup=ikb_admin)

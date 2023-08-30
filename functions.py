@@ -13,9 +13,11 @@ from messages import ERROR_F
 TIME_ZONE = 5
 
 
-def set_json(path: str, users: dict):
+def set_json(path: str, data: dict):
+    json_data = get_json(path)
+    json_data = json_data | data
     with open(path, 'w') as file:
-        json.dump(users, file, ensure_ascii=False)
+        json.dump(json_data, file, ensure_ascii=False)
 
 
 def get_json(path: str) -> dict:

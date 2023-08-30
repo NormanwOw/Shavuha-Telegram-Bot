@@ -348,3 +348,37 @@ class OrderDB:
         with cls.__connection:
             return cls.__cursor.execute("INSERT INTO errors (username, error, date, time) VALUES (?, ?, ?, ?)",
                                         (username, error, date, time))
+# MAILS TABLE
+# ======================================================================================================================
+
+    @classmethod
+    async def insert_mail(cls, mail: str):
+        with cls.__connection:
+            cls.__cursor.execute("UPDATE mails SET selected = 0")
+            cls.__cursor.execute("INSERT INTO mails (mail, selected) VALUES (?, ?)", (mail, 1,))
+
+    @classmethod
+    async def get_mail(cls) -> tuple:
+        with cls.__connection:
+            return cls.__cursor.execute("SELECT id, mail FROM mails WHERE selected = 1").fetchone()
+
+    @classmethod
+    async def get_mails_count(cls) -> int:
+        with cls.__connection:
+            return cls.__cursor.execute("SELECT COUNT(mail) FROM mails").fetchone()[0]
+
+    @classmethod
+    async def delete_mail(cls):
+        with cls.__connection:
+            mail = await OrderDB.get_mail()
+            cls.__cursor.execute("DELETE FROM mails WHERE selected = 1")
+            mails_count = await OrderDB.get_mails_count()
+            selected_id = count = mail[0]
+            for _ in range(mails_count+1 - selected_id):
+                cls.__cursor.execute("UPDATE mails SET id = ? WHERE id = ?", (count, count + 1))
+                count += 1
+            try:
+                last_id = cls.__cursor.execute("SELECT id FROM mails ORDER BY ID DESC LIMIT 1").fetchone()[0]
+                cls.__cursor.execute("UPDATE mails SET selected = 1 WHERE id = ?", (last_id,))
+            except TypeError:
+                return False

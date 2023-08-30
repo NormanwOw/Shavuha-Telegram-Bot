@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from order_db import OrderDB
 from main import menu
-
+from functions import get_json
 
 TIME_ZONE = 5
 
@@ -89,6 +89,43 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
         ikb.insert(InlineKeyboardButton('Добавить товар', callback_data='menu_add'))
         ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
         ikb.insert(InlineKeyboardButton('Помощь', callback_data='menu_help'))
+
+    return ikb
+
+
+async def settings_page() -> InlineKeyboardMarkup:
+    ikb = InlineKeyboardMarkup()
+    state = get_json('data.json')['state']
+    if state:
+        ikb.add(InlineKeyboardButton('Выключить бота', callback_data='state_bot_off'))
+    else:
+        ikb.add(InlineKeyboardButton('Включить бота', callback_data='state_bot_on'))
+    ikb.add(InlineKeyboardButton('Стартовое изображение', callback_data='change_main_image'))
+    ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
+
+    return ikb
+
+
+async def mails_page() -> InlineKeyboardMarkup:
+    mails_count = await OrderDB.get_mails_count()
+    mails = f'Мои рассылки ({mails_count})' if mails_count else 'Мои рассылки'
+    ikb = InlineKeyboardMarkup()
+    ikb.add(InlineKeyboardButton('Создать рассылку', callback_data='create_mail'))
+    ikb.add(InlineKeyboardButton(mails, callback_data='my_mails'))
+    ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
+    ikb.insert(InlineKeyboardButton('Помощь', callback_data='mails_help'))
+
+    return ikb
+
+
+async def my_mails(mail_id: int) -> InlineKeyboardMarkup:
+    ikb = InlineKeyboardMarkup()
+    ikb.add(InlineKeyboardButton('◀️', callback_data='None'))
+    ikb.insert(InlineKeyboardButton(f'{mail_id}', callback_data='None'))
+    ikb.insert(InlineKeyboardButton('▶️', callback_data='None'))
+    ikb.add(InlineKeyboardButton('Удалить', callback_data='delete_mail'))
+    ikb.add(InlineKeyboardButton('Назад', callback_data='admin_mails'))
+    ikb.insert(InlineKeyboardButton('Отправить', callback_data='send_mail'))
 
     return ikb
 
