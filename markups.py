@@ -20,6 +20,7 @@ ikb_admin.row(InlineKeyboardButton('Персонал', callback_data='admin_empl
 ikb_admin.row(InlineKeyboardButton('Статистика', callback_data='admin_stats'),
               InlineKeyboardButton('Рассылки', callback_data='admin_sending'))
 ikb_admin.add(InlineKeyboardButton('История заказов .xlsx', callback_data='admin_xlsx'))
+ikb_admin.add(InlineKeyboardButton('Сообщить об ошибке', callback_data='admin_error'))
 ikb_admin.add(InlineKeyboardButton('Настройки', callback_data='admin_settings'))
 
 rkb_admin = ReplyKeyboardMarkup(resize_keyboard=True)

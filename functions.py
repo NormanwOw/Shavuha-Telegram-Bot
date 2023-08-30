@@ -4,10 +4,11 @@ import string
 import hashlib
 import datetime
 
-from aiogram import Bot
+from aiogram import Bot, types
 
 from order_db import OrderDB
 from config import ya_disk
+from messages import ERROR_F
 
 TIME_ZONE = 5
 
@@ -68,7 +69,7 @@ def get_time():
 
 
 async def get_24h_orders_list(message):
-    orders_24 = await OrderDB.get_orders_24h()
+    orders_24 = await OrderDB.get_orders(1)
     if len(orders_24) == 0:
         await message.answer('Список заказов пуст')
     else:
@@ -118,3 +119,11 @@ async def backup(date):
         ya_disk.upload('database.db', '/database.db')
         data['backup'] = date
         set_json('data.json', data)
+
+
+async def error_to_db(message: types.Message, bot: Bot):
+    now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+    date = now.strftime('%d.%m.%Y')
+    await OrderDB.insert_error(message.from_user.full_name, message.text, date, get_time()[0])
+    await bot.send_message(message.from_user.id, ERROR_F)
+    await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)

@@ -34,3 +34,7 @@ class AddProduct(StatesGroup):
 
 class OrderComment(StatesGroup):
     get_comment = State()
+
+
+class ErrorHandler(StatesGroup):
+    get_error = State()

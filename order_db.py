@@ -209,9 +209,9 @@ class OrderDB:
                 return 0
 
     @classmethod
-    async def get_orders_24h(cls) -> list:
+    async def get_orders(cls, days: int) -> list:
         date_class = datetime.datetime.now()
-        delta = datetime.timedelta(days=1)
+        delta = datetime.timedelta(days=days)
         date_2_class = date_class - delta
         date = date_class.strftime('%d.%m.%Y')
         date_2 = date_2_class.strftime('%d.%m.%Y')
@@ -228,8 +228,12 @@ class OrderDB:
             return days_list
 
     @classmethod
-    async def get_orders_count_24h(cls) -> int:
-        return len(await cls.get_orders_24h())
+    async def get_orders_count_day(cls) -> int:
+        return len(await cls.get_orders(1))
+
+    @classmethod
+    async def get_orders_count_month(cls) -> int:
+        return len(await cls.get_orders(30))
 
     @classmethod
     async def get_orders_count(cls):
@@ -336,3 +340,11 @@ class OrderDB:
     async def get_url(cls, title: str) -> str:
         with cls.__connection:
             return cls.__cursor.execute("SELECT url FROM urls WHERE title = ?", (title,)).fetchone()[0]
+
+# PRICES TABLE
+# ======================================================================================================================
+    @classmethod
+    async def insert_error(cls, username: int, error: str, date: str, time: str):
+        with cls.__connection:
+            return cls.__cursor.execute("INSERT INTO errors (username, error, date, time) VALUES (?, ?, ?, ?)",
+                                        (username, error, date, time))

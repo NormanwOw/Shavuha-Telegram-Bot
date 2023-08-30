@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import aiogram.utils.exceptions
-from aiogram import Dispatcher, executor, types
+from aiogram import Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ShippingQuery, LabeledPrice, PreCheckoutQuery, ShippingOption
@@ -85,6 +85,12 @@ async def admin_backup(message: types.Message):
     await message.delete()
     if message.from_user.id in adm_list:
         ya_disk.download('/database.db', 'database.db')
+
+
+@dp.message_handler(commands=['error'])
+async def get_error_msg(message: types.Message):
+    await message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
+    await ErrorHandler.get_error.set()
 
 
 @dp.message_handler(lambda message: message.text and 'список заказов' in message.text.lower()
@@ -218,6 +224,14 @@ async def set_comment(message: types.Message, state: FSMContext):
                            reply_markup=await pages.basket_menu_page(message.from_user.id))
 
 
+@dp.message_handler(state=ErrorHandler.get_error)
+async def get_error_handler(message: types.Message, state: FSMContext):
+    if len(message.text) > 5:
+        await error_to_db(message, bot)
+        await state.finish()
+    await message.delete()
+
+
 @dp.message_handler()
 async def message_filter(message: types.Message):
     await OrderDB.delete_temp(message.from_user.id)
@@ -261,7 +275,7 @@ async def inline_h(query: types.InlineQuery):
 @dp.callback_query_handler(state=[Logging.admin_password, Logging.employee_password, ChangeProduct.get_new_desc,
                                   ChangeProduct.get_new_product_image, ChangeProduct.get_new_price,
                                   AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
-                                  ChangeMainImage.get_main_image, OrderComment.get_comment])
+                                  ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error])
 async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == 'cancel':
         await callback.answer('Ввод отменён', show_alert=True)
@@ -331,6 +345,10 @@ async def callback_handler(callback: types.CallbackQuery):
     if callback.data == 'admin_xlsx':
         doc = await callbacks.get_xlsx()
         await bot.send_document(user_id, open(doc, 'rb'))
+
+    if callback.data == 'admin_error':
+        await callback.message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
+        await ErrorHandler.get_error.set()
 
     if callback.data == 'admin_settings':
         await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=ikb_settings)
@@ -438,7 +456,10 @@ async def successful_payment(message: types.Message):
     date = datetime.datetime.today().strftime("%d.%m.%Y")
     time = await OrderDB.get_order_time(message.from_user.id)
     cur = message.successful_payment.currency
-    order_list = message.successful_payment.invoice_payload
+    payload = message.successful_payment.invoice_payload
+    order_list = payload
+    for ch in ['{', '}', '\'', '"']:
+        order_list = order_list.replace(ch, '')
     comment = await OrderDB.get_comment(message.from_user.id)
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
 
@@ -459,7 +480,7 @@ async def successful_payment(message: types.Message):
               f'"price": {price}{cur}, "order_user_time": {order_user_time}, "comment": {comment}, "date": '
               f'{date}, "time": {time}'+'}')
 
-    await send_order_to_employees(comment, order_list, bot, order_number, user_time_str, price, date, time)
+    await send_order_to_employees(comment, payload, bot, order_number, user_time_str, price, date, time)
     await backup(date)
 
 if __name__ == '__main__':

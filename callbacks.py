@@ -1,5 +1,4 @@
 from openpyxl import Workbook
-from aiogram import types
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
 from openpyxl.styles import Alignment
@@ -139,7 +138,6 @@ async def create_invoice(user_id: int, msg_id: int, bot: Bot):
 
         desc += f' ▫️ {item}'
 
-        print(order_list, order_prices)
     await bot.send_invoice(user_id,
                            title='Заказ',
                            description=desc,
