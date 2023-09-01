@@ -1,12 +1,15 @@
 from openpyxl import Workbook
+from openpyxl.styles import Alignment
+import os
+
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
-from openpyxl.styles import Alignment
 
 from config import PAY_TOKEN
 from messages import *
 from functions import *
 from markups import *
+from states import ChangeProduct
 import pages
 
 
@@ -155,7 +158,8 @@ async def edit_menu_navigation(user_id: int, msg_id: int, callback: types.Callba
     data = callback.data.split()
     page = int(data[1])
     next_page_len = int(data[2])
-    if 'next' in callback.data and next_page_len > 1:
+
+    if 'next' in callback.data and next_page_len > 0:
         await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
                                     reply_markup=await pages.edit_menu_page(del_product, page + 1))
     elif 'prev' in callback.data and page != 1:
@@ -194,6 +198,14 @@ async def get_xlsx() -> str:
     return name
 
 
+async def xlsx(user_id: int, bot: Bot):
+    doc = await get_xlsx()
+    await bot.send_document(user_id, open(doc, 'rb'))
+    for file in os.listdir():
+        if '.xlsx' in file:
+            os.remove(file)
+
+
 async def state_bot(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
     if 'off' in callback.data:
         set_json('data.json', {'state': 0})
@@ -202,3 +214,181 @@ async def state_bot(user_id: int, msg_id: int, callback: types.CallbackQuery, bo
         set_json('data.json', {'state': 1})
         await callback.answer('Приём заказов запущен', show_alert=True)
     await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
+
+
+async def delete_mail(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    if 'yes' in callback.data:
+        state = await OrderDB.delete_mail()
+        await callback.answer('Рассылка удалена', show_alert=True)
+        if state:
+            mail_id, mail_text = await OrderDB.get_mail()
+            await bot.edit_message_text(mail_text, user_id, msg_id,
+                                        reply_markup=await pages.my_mails(mail_id))
+        else:
+            await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
+    elif 'no' in callback.data:
+        await callback.answer('Удаление отменено', show_alert=True)
+        await bot.delete_message(user_id, msg_id)
+    else:
+        await bot.send_message(user_id, 'Удалить рассылку?', reply_markup=ikb_del_mail)
+
+
+async def send_mail(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    if 'yes' in callback.data:
+        users = await OrderDB.get_all_user_id()
+        _, mail_text = await OrderDB.get_mail()
+        if users:
+            for user in users:
+                await bot.send_message(user, mail_text)
+            word = 'клиенту' if str(len(users))[-1] == '1' else 'клиентам'
+            await callback.answer(f'Рассылка успешно отправлена {len(users)} {word}', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+        else:
+            await callback.answer('Список клиентов пуст', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+    elif 'no' in callback.data:
+        await callback.answer('Отправление отменено', show_alert=True)
+        await bot.delete_message(user_id, msg_id)
+    else:
+        mail_text = await OrderDB.get_mail()
+        await bot.send_message(user_id, SEND_MAIL + mail_text[1],
+                               reply_markup=ikb_send_mail)
+
+
+async def my_mails(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    data = callback.data.split()
+    if 'prev' in callback.data:
+        page = int(data[1])
+        if page == 1:
+            return await callback.answer()
+        await OrderDB.move_selected_mail(False)
+        page -= 1
+    elif 'next' in callback.data:
+        page = int(data[1])
+        total_pages = int(data[2])
+        if page == total_pages:
+            return await callback.answer()
+        await OrderDB.move_selected_mail(True)
+        page += 1
+    try:
+        mail_id, mail_text = await OrderDB.get_mail()
+        page = mail_id
+        await bot.edit_message_text(mail_text, user_id, msg_id, reply_markup=await pages.my_mails(page))
+    except TypeError:
+        await callback.answer('Список рассылок пуст')
+
+
+async def change_desc(user_id: int, callback: types.CallbackQuery, bot: Bot):
+    product = callback.data[12:]
+    await ChangeProduct.set_product(product)
+    await ChangeProduct.get_new_desc.set()
+    await bot.send_message(user_id, 'Введите описание товара (состав):', reply_markup=ikb_cancel)
+    await callback.answer('Редактирование описания')
+
+
+async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state, product):
+    if callback.data == 'cancel':
+        await callback.answer('Ввод отменён', show_alert=True)
+        await bot.delete_message(callback.from_user.id, callback.message.message_id)
+    if callback.data == 'without_image':
+        product_list = await product.get_product_list()
+        if len(product_list) == 3:
+            product_list.append(None)
+        await OrderDB.add_product(product_list)
+        await bot.send_message(callback.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
+                               reply_markup=await pages.edit_menu_page(False))
+    await state.finish()
+    await callback.answer()
+
+
+async def change_image(user_id: int, callback: types.CallbackQuery, bot: Bot):
+    product = callback.data[13:]
+    await ChangeProduct.set_product(product)
+    await ChangeProduct.get_new_product_image.set()
+    await bot.send_message(user_id, 'Введите ссылку на изображение:', reply_markup=ikb_cancel)
+    await callback.answer('Редактирование изображения')
+
+
+async def change_price(user_id: int, callback: types.CallbackQuery, bot: Bot):
+    product = callback.data[13:]
+    await ChangeProduct.set_product(product)
+    await ChangeProduct.get_new_price.set()
+    await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
+    await callback.answer('Редактирование цены')
+
+
+async def remove_product(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    product = callback.data[15:]
+    await OrderDB.delete_product(product)
+    await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
+    await callback.answer(f'Товар удалён', show_alert=True)
+
+
+async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
+    user_orders = await OrderDB.get_user_orders(message.from_user.id)
+    user_orders_count = len(user_orders)
+    rows = 5
+
+    def __set_answer(c):
+        num = 1
+        answer = ''
+        if selected_page == 0:
+            or_num = [_ for _ in range(1, user_orders_count + 1)][c * -1:]
+            for order_number, price, order_list, date, time in user_orders[c * -1:]:
+                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
+                          f'{order_list}- Оплата: {price}₽\n[{date} {time}]\n\n'
+                num += 1
+            return answer
+        else:
+            e = selected_page * rows
+            s = e - rows
+            or_num = [_ for _ in range(1, user_orders_count + 1)][s:e]
+            for order_number, price, order_list, date, time in user_orders[s:e]:
+                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
+                          f'{order_list}- Оплата: {price}₽\n[{date} {time}]\n\n'
+                num += 1
+            return answer
+
+    if user_orders_count != 0:
+        if user_orders_count > 5:
+            last_page = user_orders_count % 5
+            order_pages = user_orders_count // 5
+            page = 0 if last_page == 0 else 1
+            total_pages = int(order_pages) + page
+            if last_page == 0:
+                last_page = 5
+
+            if selected_page == 0:
+                pg = total_pages
+            else:
+                pg = selected_page
+            if selected_page == 0:
+                await message.answer(__set_answer(last_page),
+                                     reply_markup=await pages.my_orders_navigation(pg, total_pages))
+            else:
+                await bot.edit_message_text(__set_answer(last_page), user_id, msg_id,
+                                            reply_markup=await pages.my_orders_navigation(pg, total_pages))
+        else:
+            if selected_page == 0:
+                await message.answer(__set_answer(user_orders_count))
+            else:
+                await bot.send_message(user_id, __set_answer(user_orders_count))
+    else:
+        if selected_page == 0:
+            await message.answer('Список заказов пуст')
+        else:
+            await bot.send_message(user_id, 'Список заказов пуст')
+    if selected_page == 0:
+        await bot.delete_message(user_id, msg_id)
+
+
+async def my_orders_navigation(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    data = callback.data.split()
+    page = int(data[1])
+    if 'prev' in callback.data:
+        if page != 1:
+            await my_orders(callback, bot, user_id, msg_id, page - 1)
+    else:
+        total_pages = int(data[2])
+        if page != total_pages:
+            await my_orders(callback, bot, user_id, msg_id, page + 1)

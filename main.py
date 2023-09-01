@@ -1,7 +1,7 @@
 from datetime import datetime
 
-import aiogram.utils.exceptions
 from aiogram import Dispatcher, executor
+import aiogram.utils.exceptions
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ShippingQuery, LabeledPrice, PreCheckoutQuery, ShippingOption
@@ -22,8 +22,6 @@ from order_db import OrderDB
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
-
-
 
 
 class ProductList:
@@ -55,7 +53,7 @@ async def admin_login(message: types.Message):
 
 @dp.message_handler(commands=['my_orders'])
 async def my_orders(message: types.Message):
-    await commands.my_orders(message)
+    await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
 
 
 @dp.message_handler(commands=['backup'])
@@ -219,7 +217,6 @@ async def get_mail_msg(message: types.Message, state: FSMContext):
 
 @dp.message_handler()
 async def message_filter(message: types.Message):
-    await OrderDB.delete_temp(message.from_user.id)
     products = await OrderDB.get_prices()
     for product in products:
         if message.text == product[0]:
@@ -265,19 +262,8 @@ async def inline_h(query: types.InlineQuery):
                                   AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
                                   ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error,
                                   Mail.new_mail])
-async def cancel_logging_admin(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == 'cancel':
-        await callback.answer('Ввод отменён', show_alert=True)
-        await bot.delete_message(callback.from_user.id, callback.message.message_id)
-    if callback.data == 'without_image':
-        product_list = await ProductList.get_product_list()
-        if len(product_list) == 3:
-            product_list.append(None)
-        await OrderDB.add_product(product_list)
-        await bot.send_message(callback.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page(False))
-    await state.finish()
-    await callback.answer()
+async def cancel_callback(callback: types.CallbackQuery, state: FSMContext):
+    await callbacks.cancel_callback(callback, bot, state, ProductList)
 
 
 @dp.callback_query_handler()
@@ -332,8 +318,7 @@ async def callback_handler(callback: types.CallbackQuery):
         await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(False))
 
     if callback.data == 'admin_xlsx':
-        doc = await callbacks.get_xlsx()
-        await bot.send_document(user_id, open(doc, 'rb'))
+        await callbacks.xlsx(user_id, bot)
 
     if callback.data == 'admin_error':
         await callback.message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
@@ -348,15 +333,19 @@ async def callback_handler(callback: types.CallbackQuery):
     if callback.data == 'admin_stats':
         await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
 
+    if callback.data == 'change_main_image':
+        await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
+        await ChangeMainImage.get_main_image.set()
+        await callback.answer('Редактирование изображения')
+
+# MAILS CALLBACKS
+# ======================================================================================================================
+
     if callback.data == 'admin_mails':
         await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
 
-    if callback.data == 'my_mails':
-        try:
-            mail_id, mail_text = await OrderDB.get_mail()
-            await bot.edit_message_text(mail_text, user_id, msg_id, reply_markup=await pages.my_mails(mail_id))
-        except TypeError:
-            await callback.answer('Список рассылок пуст')
+    if 'my_mails' in callback.data:
+        await callbacks.my_mails(user_id, msg_id, callback, bot)
 
     if callback.data == 'create_mail':
         await Mail.new_mail.set()
@@ -366,39 +355,14 @@ async def callback_handler(callback: types.CallbackQuery):
         await bot.edit_message_text(MAILS_TITLE + MAILS_HELP, user_id, msg_id, reply_markup=await pages.mails_page())
 
     if 'delete_mail' in callback.data:
-        if 'yes' in callback.data:
-            state = await OrderDB.delete_mail()
-            await callback.answer('Рассылка удалена', show_alert=True)
-            if state:
-                mail_id, mail_text = await OrderDB.get_mail()
-                await bot.edit_message_text(mail_text, user_id, msg_id,
-                                            reply_markup=await pages.my_mails(mail_id))
-            else:
-                await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
-        elif 'no' in callback.data:
-            await callback.answer('Удаление отменено', show_alert=True)
-            await bot.delete_message(user_id, msg_id)
-        else:
-            await bot.send_message(user_id, 'Удалить рассылку?', reply_markup=ikb_del_mail)
+        await callbacks.delete_mail(user_id, msg_id, callback, bot)
 
     if 'send_mail' in callback.data:
-        if 'yes' in callback.data:
-            pass
-        elif 'no' in callback.data:
-            await callback.answer('Отправление отменено', show_alert=True)
-            await bot.delete_message(user_id, msg_id)
-        else:
-            mail_text = await OrderDB.get_mail()
-            await bot.send_message(user_id, SEND_MAIL+mail_text[1],
-                                   reply_markup=ikb_send_mail)
+        await callbacks.send_mail(user_id, msg_id, callback, bot)
 
     if callback.data == 'back':
         await bot.edit_message_text(ADMIN_TITLE, user_id, msg_id, reply_markup=ikb_admin)
 
-    if callback.data == 'change_main_image':
-        await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
-        await ChangeMainImage.get_main_image.set()
-        await callback.answer('Редактирование изображения')
 
 # EDIT EMPLOYEES CALLBACKS
 # ======================================================================================================================
@@ -423,25 +387,13 @@ async def callback_handler(callback: types.CallbackQuery):
 # ======================================================================================================================
 
     if 'change_desc' in callback.data:
-        product = callback.data[12:]
-        await ChangeProduct.set_product(product)
-        await ChangeProduct.get_new_desc.set()
-        await bot.send_message(user_id, 'Введите описание товара (состав):', reply_markup=ikb_cancel)
-        await callback.answer('Редактирование описания')
+        await callbacks.change_desc(user_id, callback, bot)
 
     if 'change_image' in callback.data:
-        product = callback.data[13:]
-        await ChangeProduct.set_product(product)
-        await ChangeProduct.get_new_product_image.set()
-        await bot.send_message(user_id, 'Введите ссылку на изображение:', reply_markup=ikb_cancel)
-        await callback.answer('Редактирование изображения')
+        await callbacks.change_image(user_id, callback, bot)
 
     if 'change_price' in callback.data:
-        product = callback.data[13:]
-        await ChangeProduct.set_product(product)
-        await ChangeProduct.get_new_price.set()
-        await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
-        await callback.answer('Редактирование цены')
+        await callbacks.change_price(user_id, callback, bot)
 
     if callback.data == 'menu_add':
         await bot.send_message(user_id, 'Введите название товара:', reply_markup=ikb_cancel)
@@ -460,19 +412,21 @@ async def callback_handler(callback: types.CallbackQuery):
         await callbacks.edit_menu_navigation(user_id, msg_id, callback, bot, del_product)
 
     if 'remove_product' in callback.data:
-        product = callback.data[15:]
-        await OrderDB.delete_product(product)
-        await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
-        await callback.answer(f'Товар удалён', show_alert=True)
+        await callbacks.remove_product(user_id, msg_id, callback, bot)
 
     if callback.data == 'back_to_edit_menu':
         await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(False))
 
-    await callback.answer()
+# MY ORDERS CALLBACKS
+# ======================================================================================================================
+    if 'my_orders' in callback.data:
+        await callbacks.my_orders_navigation(user_id, msg_id, callback, bot)
 
+    await callback.answer()
 
 # PAYMENT
 # ======================================================================================================================
+
 
 @dp.shipping_query_handler()
 async def shipping_process(shipping_query: ShippingQuery):

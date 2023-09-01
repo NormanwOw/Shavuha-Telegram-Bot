@@ -4,7 +4,7 @@ import string
 import hashlib
 import datetime
 
-from aiogram import Bot, types
+from aiogram import types, Bot
 
 from order_db import OrderDB
 from config import ya_disk
@@ -75,18 +75,13 @@ async def get_24h_orders_list(message):
     if len(orders_24) == 0:
         await message.answer('Список заказов пуст')
     else:
-        order = ''
         answer = ''
         for order_number, price, order_list, comment, date, time in orders_24:
             if comment is not None:
                 comment = f'Комментарий: {comment} | '
             else:
                 comment = ''
-            order_list = json.loads(order_list.replace('\'', '"'))
-
-            for product in order_list:
-                order += f'{product}: {order_list[product]} '
-            answer += f'<b>Заказ №<u>{order_number}</u></b> | {order}| ' \
+            answer += f'<b>Заказ №<u>{order_number}</u></b> | {order_list}| ' \
                       f'Оплата: {int(price)}₽ | {comment}{date} {time}\n\n'
         await message.answer(answer)
 
@@ -123,7 +118,7 @@ async def backup(date):
         set_json('data.json', data)
 
 
-async def error_to_db(message: types.Message, bot: Bot):
+async def error_to_db(message: types.Message, bot):
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = now.strftime('%d.%m.%Y')
     await OrderDB.insert_error(message.from_user.full_name, message.text, date, get_time()[0])

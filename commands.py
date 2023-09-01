@@ -3,6 +3,7 @@ from states import *
 
 
 async def start_command(bot: Bot, message: types.Message):
+    await OrderDB.delete_temp(message.from_user.id)
     state = get_json('data.json')['state']
     if state:
         await bot.send_photo(message.from_user.id,
@@ -21,20 +22,6 @@ async def admin_login(message: types.Message):
     else:
         await Logging.admin_password.set()
         await message.answer('Введите пароль:', reply_markup=ikb_cancel)
-    await message.delete()
-
-
-async def my_orders(message: types.Message):
-    answer = ''
-    title = ''
-    user_orders = await OrderDB.get_user_orders(message.from_user.id)
-    if len(user_orders) == 10:
-        title = '<b>Последние 10 заказов</b>\n\n'
-    elif len(user_orders) == 0:
-        title = 'Список заказов пуст'
-    for order_number, price, order_list, date, time in user_orders:
-        answer += f'<b>Заказ №<u>{order_number}</u></b>\n{order_list}- Оплата: {int(price)}₽\n[{date} {time}]\n\n'
-    await message.answer(title + answer)
     await message.delete()
 
 

@@ -67,7 +67,7 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
     prices_list = await OrderDB.get_prices()
     prices_list_rows = prices_list[rows*page-rows:rows*page]
-    next_page_len = len(prices_list[rows*page+1-rows:rows*page+1])
+    next_page_len = len(prices_list) - rows*page
 
     for product, price, desc, url in prices_list_rows:
         if del_product:
@@ -118,11 +118,13 @@ async def mails_page() -> InlineKeyboardMarkup:
     return ikb
 
 
-async def my_mails(mail_id: int) -> InlineKeyboardMarkup:
+async def my_mails(page: int) -> InlineKeyboardMarkup:
+    pages = await OrderDB.get_mails_count()
+
     ikb = InlineKeyboardMarkup()
-    ikb.add(InlineKeyboardButton('◀️', callback_data='None'))
-    ikb.insert(InlineKeyboardButton(f'{mail_id}', callback_data='None'))
-    ikb.insert(InlineKeyboardButton('▶️', callback_data='None'))
+    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_mails {page} {pages}'))
+    ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
+    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_my_mails {page} {pages}'))
     ikb.add(InlineKeyboardButton('Удалить', callback_data='delete_mail'))
     ikb.add(InlineKeyboardButton('Назад', callback_data='admin_mails'))
     ikb.insert(InlineKeyboardButton('Отправить', callback_data='send_mail'))
@@ -186,5 +188,14 @@ async def comment_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
     ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_basket'))
     ikb.insert(InlineKeyboardButton('Удалить', callback_data='del_back_to_basket'))
+
+    return ikb
+
+
+async def my_orders_navigation(page: int, pages: int) -> InlineKeyboardMarkup:
+    ikb = InlineKeyboardMarkup()
+    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))
+    ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
+    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_my_orders {page} {pages}'))
 
     return ikb

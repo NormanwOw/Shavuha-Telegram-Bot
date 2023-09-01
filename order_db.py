@@ -7,7 +7,7 @@ class OrderDB:
     __connection = sqlite3.connect('database.db')
     __cursor = __connection.cursor()
 
-# ORDERS TABLE
+    # ORDERS TABLE
     @classmethod
     async def get_order_list(cls, user_id) -> dict or None:
         with cls.__connection:
@@ -40,15 +40,6 @@ class OrderDB:
                 return count
             except TypeError:
                 return 0
-
-    @classmethod
-    async def get_all_user_id(cls) -> list or None:
-        with cls.__connection:
-            try:
-                users = cls.__cursor.execute("SELECT user_id FROM orders").fetchall()
-                return [user[0] for user in users]
-            except TypeError:
-                return None
 
     @classmethod
     async def add_order(cls, user_id: int, new_order_list: dict):
@@ -131,10 +122,13 @@ class OrderDB:
 # ======================================================================================================================
     @classmethod
     async def add_product(cls, product_list: list):
-        product, price, desc, url = product_list
-        with cls.__connection:
-            cls.__cursor.execute("INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
-                                 (product, price, desc, url,))
+        try:
+            product, price, desc, url = product_list
+            with cls.__connection:
+                cls.__cursor.execute("INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
+                                     (product, price, desc, url,))
+        except Exception:
+            pass
 
     @classmethod
     async def get_prices(cls) -> list:
@@ -183,8 +177,8 @@ class OrderDB:
 # ======================================================================================================================
 
     @classmethod
-    async def add_to_archive(cls, user_id: int, order_number: int, order_list:
-                             str, comment: str, price: int, time: str):
+    async def add_to_archive(cls, user_id: int, order_number: int, order_list: str,
+                             comment: str, price: int, time: str):
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO archive (order_number, user_id, order_list, comment, price, date, time) "
                                  "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
@@ -243,11 +237,18 @@ class OrderDB:
     @classmethod
     async def get_user_orders(cls, user_id):
         with cls.__connection:
-            result = cls.__cursor.execute("SELECT order_number, price, order_list, "
-                                          "date, time FROM archive WHERE user_id = ?", (user_id,)).fetchall()
-            if len(result) > 10:
-                result = result[-10:]
-            return result
+            return cls.__cursor.execute("SELECT order_number, price, order_list, "
+                                        "date, time FROM archive WHERE user_id = ?", (user_id,)).fetchall()
+
+    @classmethod
+    async def get_all_user_id(cls) -> list or None:
+        with cls.__connection:
+            try:
+                users = cls.__cursor.execute("SELECT user_id FROM archive").fetchall()
+                result = set([user[0] for user in users])
+                return list(result)
+            except TypeError:
+                return False
 
 # EMPLOYEES TABLE
 # ======================================================================================================================
@@ -348,6 +349,7 @@ class OrderDB:
         with cls.__connection:
             return cls.__cursor.execute("INSERT INTO errors (username, error, date, time) VALUES (?, ?, ?, ?)",
                                         (username, error, date, time))
+
 # MAILS TABLE
 # ======================================================================================================================
 
@@ -374,7 +376,7 @@ class OrderDB:
             cls.__cursor.execute("DELETE FROM mails WHERE selected = 1")
             mails_count = await OrderDB.get_mails_count()
             selected_id = count = mail[0]
-            for _ in range(mails_count+1 - selected_id):
+            for _ in range(mails_count + 1 - selected_id):
                 cls.__cursor.execute("UPDATE mails SET id = ? WHERE id = ?", (count, count + 1))
                 count += 1
             try:
@@ -382,3 +384,11 @@ class OrderDB:
                 cls.__cursor.execute("UPDATE mails SET selected = 1 WHERE id = ?", (last_id,))
             except TypeError:
                 return False
+
+    @classmethod
+    async def move_selected_mail(cls, direct: bool):
+        move = 1 if direct else -1
+        with cls.__connection:
+            selected_id = cls.__cursor.execute("SELECT id FROM mails WHERE selected = 1").fetchone()[0]
+            cls.__cursor.execute("UPDATE mails SET selected = 0")
+            cls.__cursor.execute("UPDATE mails SET selected = 1 WHERE id = ?", (selected_id + move,))
