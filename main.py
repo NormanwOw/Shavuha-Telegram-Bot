@@ -91,7 +91,7 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
 
 @dp.message_handler(state=Logging.employee_password)
 async def check_employee_password_dialog(message: types.Message, state: FSMContext):
-    if message.text == get_json('data.json')['employee_password']:
+    if message.text.upper() == get_json('data.json')['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         update_password()
         await message.answer(EMPLOYEE_MESSAGE, reply_markup=rkb_employee)
@@ -426,12 +426,6 @@ async def callback_handler(callback: types.CallbackQuery):
 
 # PAYMENT
 # ======================================================================================================================
-
-
-@dp.shipping_query_handler()
-async def shipping_process(shipping_query: ShippingQuery):
-    ship = ShippingOption(id='pickup', title='Самовывоз').add(LabeledPrice('Самовывоз', 0))
-    await bot.answer_shipping_query(shipping_query.id, shipping_options=[ship], ok=True)
 
 
 @dp.pre_checkout_query_handler()

@@ -335,7 +335,7 @@ async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
             or_num = [_ for _ in range(1, user_orders_count + 1)][c * -1:]
             for order_number, price, order_list, date, time in user_orders[c * -1:]:
                 answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                          f'{order_list}- Оплата: {price}₽\n[{date} {time}]\n\n'
+                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
                 num += 1
             return answer
         else:
@@ -344,7 +344,7 @@ async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
             or_num = [_ for _ in range(1, user_orders_count + 1)][s:e]
             for order_number, price, order_list, date, time in user_orders[s:e]:
                 answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                          f'{order_list}- Оплата: {price}₽\n[{date} {time}]\n\n'
+                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
                 num += 1
             return answer
 
