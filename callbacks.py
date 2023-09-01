@@ -147,7 +147,6 @@ async def create_invoice(user_id: int, msg_id: int, bot: Bot):
                            description=desc,
                            provider_token=PAY_TOKEN,
                            currency='rub',
-                           is_flexible=True,
                            start_parameter='example',
                            payload=order_list,
                            prices=order_prices,
