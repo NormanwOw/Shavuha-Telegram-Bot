@@ -223,20 +223,32 @@ class OrderDB:
                 return days_list
         elif days == 30:
             with cls.__connection:
+                day_date = date[:2]
                 date = date[2:]
+                month_date2 = date_2[3:5]
                 date_2 = date_2[2:]
                 days_list = cls.__cursor.execute(f"SELECT order_number, price, order_list, comment, date, time "
                                                  f"FROM archive WHERE date LIKE '__{date}' "
                                                  f"OR date LIKE '__{date_2}'").fetchall()
-                return days_list
+                days_list_copy = days_list.copy()
+                for day in days_list:
+                    if int(day[4][0:2]) < int(day_date) and int(day[4][3:5]) == int(month_date2):
+                        days_list_copy.remove(day)
+                return days_list_copy
 
     @classmethod
     async def get_orders_count_day(cls) -> int:
-        return len(await cls.get_orders(1))
+        try:
+            return len(await cls.get_orders(1))
+        except TypeError:
+            return 0
 
     @classmethod
     async def get_orders_count_month(cls) -> int:
-        return len(await cls.get_orders(30))
+        try:
+            return len(await cls.get_orders(30))
+        except TypeError:
+            return 0
 
     @classmethod
     async def get_orders_count(cls):
