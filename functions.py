@@ -81,7 +81,7 @@ async def get_24h_orders_list(message):
                 comment = f'Комментарий: {comment} | '
             else:
                 comment = ''
-            answer += f'<b>Заказ №<u>{order_number}</u></b> | {order_list}| ' \
+            answer += f'<b>Заказ №<u>{order_number}</u></b> | {order_list} | ' \
                       f'Оплата: {int(price)}₽ | {comment}{date} {time}\n\n'
         await message.answer(answer)
 

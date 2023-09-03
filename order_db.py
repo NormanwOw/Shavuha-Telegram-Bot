@@ -209,17 +209,26 @@ class OrderDB:
         date_2_class = date_class - delta
         date = date_class.strftime('%d.%m.%Y')
         date_2 = date_2_class.strftime('%d.%m.%Y')
-        with cls.__connection:
-            days_list = cls.__cursor.execute("SELECT order_number, price, order_list, comment, date, time FROM archive "
-                                             "WHERE date = ? OR date = ?", (date, date_2)).fetchall()
-            for day_time in days_list:
-                d = day_time[4]
-                t = day_time[5]
-                user_date = datetime.datetime(int(d[6:]), int(d[3:5]), int(d[0:2]),
-                                              hour=int(t[0:2]), minute=int(t[3:5]))
-                if user_date < date_2_class:
-                    days_list.remove(day_time)
-            return days_list
+        if days == 1:
+            with cls.__connection:
+                days_list = cls.__cursor.execute("SELECT order_number, price, order_list, comment, date, time "
+                                                 "FROM archive WHERE date = ? OR date = ?", (date, date_2)).fetchall()
+                for day_time in days_list:
+                    d = day_time[4]
+                    t = day_time[5]
+                    user_date = datetime.datetime(int(d[6:]), int(d[3:5]), int(d[0:2]),
+                                                  hour=int(t[0:2]), minute=int(t[3:5]))
+                    if user_date < date_2_class:
+                        days_list.remove(day_time)
+                return days_list
+        elif days == 30:
+            with cls.__connection:
+                date = date[2:]
+                date_2 = date_2[2:]
+                days_list = cls.__cursor.execute(f"SELECT order_number, price, order_list, comment, date, time "
+                                                 f"FROM archive WHERE date LIKE '__{date}' "
+                                                 f"OR date LIKE '__{date_2}'").fetchall()
+                return days_list
 
     @classmethod
     async def get_orders_count_day(cls) -> int:
