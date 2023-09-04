@@ -190,11 +190,11 @@ async def get_xlsx() -> str:
     ws.column_dimensions["D"].width = 13
     ws.column_dimensions["E"].width = 10
 
-    now = datetime.datetime.now().strftime('%d.%m.%Y')
-    name = now+'.xlsx'
-    wb.save(name)
+    now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+    now = now.strftime('%d.%m.%Y') + '.xlsx'
+    wb.save(now)
 
-    return name
+    return now
 
 
 async def xlsx(user_id: int, bot: Bot):
@@ -207,10 +207,10 @@ async def xlsx(user_id: int, bot: Bot):
 
 async def state_bot(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
     if 'off' in callback.data:
-        set_json('data.json', {'state': 0})
+        set_json('data.json', {'is_bot_enabled': 0})
         await callback.answer('Приём заказов остановлен', show_alert=True)
     else:
-        set_json('data.json', {'state': 1})
+        set_json('data.json', {'is_bot_enabled': 1})
         await callback.answer('Приём заказов запущен', show_alert=True)
     await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
 

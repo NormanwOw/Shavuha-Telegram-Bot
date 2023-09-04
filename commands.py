@@ -4,7 +4,7 @@ from states import *
 
 async def start_command(bot: Bot, message: types.Message):
     await OrderDB.delete_temp(message.from_user.id)
-    state = get_json('data.json')['state']
+    state = get_json('data.json')['is_bot_enabled']
     if state:
         await bot.send_photo(message.from_user.id,
                              await OrderDB.get_url('main_image'),

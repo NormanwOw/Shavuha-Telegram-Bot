@@ -95,7 +95,7 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
 
 async def settings_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
-    state = get_json('data.json')['state']
+    state = get_json('data.json')['is_bot_enabled']
     if state:
         ikb.add(InlineKeyboardButton('Выключить бота', callback_data='state_bot_off'))
     else:

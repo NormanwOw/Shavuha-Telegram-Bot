@@ -1,23 +1,24 @@
 from datetime import datetime
+import qrcode
+import os
 
-from aiogram import Dispatcher, executor
 import aiogram.utils.exceptions
+from aiogram import Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
-from aiogram.types import ShippingQuery, LabeledPrice, PreCheckoutQuery, ShippingOption
+from aiogram.types import InlineQueryResultArticle, InputTextMessageContent, InputFile
+from aiogram.types import PreCheckoutQuery
 from aiogram.types.message import ContentType
-from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
-import pages
 import callbacks
 import commands
-
+import pages
 from config import API_TOKEN
-from messages import *
 from functions import *
 from markups import *
-from states import *
+from messages import *
 from order_db import OrderDB
+from states import *
 
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
@@ -236,7 +237,7 @@ async def message_filter(message: types.Message):
 
 @dp.inline_handler(text='#menu')
 async def inline_h(query: types.InlineQuery):
-    if get_json('data.json')['state']:
+    if get_json('data.json')['is_bot_enabled']:
         item_list = []
         for product in await OrderDB.get_prices():
             product = list(product)
@@ -443,7 +444,8 @@ async def checkout_process(pre_checkout_query: PreCheckoutQuery):
 async def successful_payment(message: types.Message):
     order_number = await generate_order_number()
     price = int(int(message.successful_payment.total_amount) / 100)
-    date = datetime.datetime.today().strftime("%d.%m.%Y")
+    date = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+    date = date.strftime("%d.%m.%Y")
     time = await OrderDB.get_order_time(message.from_user.id)
     cur = message.successful_payment.currency
     payload = message.successful_payment.invoice_payload
@@ -452,10 +454,19 @@ async def successful_payment(message: types.Message):
         order_list = order_list.replace(ch, '')
     comment = await OrderDB.get_comment(message.from_user.id)
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
+    msg = SUCCESSFUL_MESSAGE.format(order_number=order_number, cur=cur, amount=str(price))
 
-    await message.answer(SUCCESSFUL_MESSAGE.format(order_number=order_number,
-                                                   cur=cur,
-                                                   amount=str(price)))
+    if get_json('data.json')['is_qrcode_enabled']:
+        img = qrcode.make(f'http://95.216.65.93:13617/?order={order_number}')
+        img_name = f'{order_number}.png'
+        img.save(img_name)
+        await bot.send_photo(message.from_user.id, InputFile(img_name), caption=msg)
+        for file in os.listdir():
+            if '.png' in file:
+                os.remove(file)
+    else:
+        await message.answer(msg)
+
     await OrderDB.clear_basket(message.from_user.id)
 
     if order_user_time is not None:

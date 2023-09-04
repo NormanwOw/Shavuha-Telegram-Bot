@@ -204,7 +204,7 @@ class OrderDB:
 
     @classmethod
     async def get_orders(cls, days: int) -> list:
-        date_class = datetime.datetime.now()
+        date_class = datetime.datetime.now() + datetime.timedelta(hours=5)
         delta = datetime.timedelta(days=days)
         date_2_class = date_class - delta
         date = date_class.strftime('%d.%m.%Y')
