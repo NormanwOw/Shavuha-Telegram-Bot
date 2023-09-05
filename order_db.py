@@ -43,7 +43,7 @@ class OrderDB:
 
     @classmethod
     async def add_order(cls, user_id: int, new_order_list: dict):
-        order_list = await OrderDB.get_order_list(user_id)
+        order_list = await cls.get_order_list(user_id)
         if order_list is None:
             new_order_list = json.dumps(new_order_list, ensure_ascii=False)
             with cls.__connection:
@@ -177,8 +177,8 @@ class OrderDB:
 # ======================================================================================================================
 
     @classmethod
-    async def add_to_archive(cls, user_id: int, order_number: int, order_list: str,
-                             comment: str, price: int, time: str):
+    async def insert_to_archive(cls, user_id: int, order_number: int, order_list: str,
+                                comment: str, price: int, time: str):
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO archive (order_number, user_id, order_list, comment, price, date, time) "
                                  "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
@@ -326,7 +326,7 @@ class OrderDB:
         with cls.__connection:
             temp = cls.__cursor.execute("SELECT * FROM temp WHERE user_id = ?", (user_id,)).fetchone()
             order_list = {temp[1]: temp[2]}
-            await OrderDB.add_order(user_id, order_list)
+            await cls.add_order(user_id, order_list)
 
     @classmethod
     async def set_count(cls, user_id: int, count=1):
@@ -393,9 +393,9 @@ class OrderDB:
     @classmethod
     async def delete_mail(cls):
         with cls.__connection:
-            mail = await OrderDB.get_mail()
+            mail = await cls.get_mail()
             cls.__cursor.execute("DELETE FROM mails WHERE selected = 1")
-            mails_count = await OrderDB.get_mails_count()
+            mails_count = await cls.get_mails_count()
             selected_id = count = mail[0]
             for _ in range(mails_count + 1 - selected_id):
                 cls.__cursor.execute("UPDATE mails SET id = ? WHERE id = ?", (count, count + 1))

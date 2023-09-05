@@ -95,11 +95,19 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
 
 async def settings_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
-    state = get_json('data.json')['is_bot_enabled']
-    if state:
+    data = get_json('data.json')
+    bot_enabled = data['is_bot_enabled']
+    qrcode_enabled = data['is_qrcode_enabled']
+
+    if bot_enabled:
         ikb.add(InlineKeyboardButton('Выключить бота', callback_data='state_bot_off'))
     else:
         ikb.add(InlineKeyboardButton('Включить бота', callback_data='state_bot_on'))
+    if qrcode_enabled:
+        ikb.add(InlineKeyboardButton('Выключить получение по QR', callback_data='qrcode_off'))
+    else:
+        ikb.add(InlineKeyboardButton('Включить получение по QR', callback_data='qrcode_on'))
+
     ikb.add(InlineKeyboardButton('Стартовое изображение', callback_data='change_main_image'))
     ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
 

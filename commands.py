@@ -1,9 +1,9 @@
 from callbacks import *
 from states import *
+from site_db import SiteDB
 
 
 async def start_command(bot: Bot, message: types.Message):
-    await OrderDB.delete_temp(message.from_user.id)
     state = get_json('data.json')['is_bot_enabled']
     if state:
         await bot.send_photo(message.from_user.id,
@@ -12,7 +12,10 @@ async def start_command(bot: Bot, message: types.Message):
         await OrderDB.clear_basket(message.from_user.id)
     else:
         await bot.send_message(message.from_user.id, PAUSE_MESSAGE)
+
+    await OrderDB.delete_temp(message.from_user.id)
     await message.delete()
+    await SiteDB.delete_expired_orders()
 
 
 async def admin_login(message: types.Message):

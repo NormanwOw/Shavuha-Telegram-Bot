@@ -18,6 +18,7 @@ from functions import *
 from markups import *
 from messages import *
 from order_db import OrderDB
+from site_db import SiteDB
 from states import *
 
 bot = Bot(API_TOKEN, parse_mode='HTML')
@@ -332,6 +333,9 @@ async def callback_handler(callback: types.CallbackQuery):
         if 'state_bot' in callback.data:
             await callbacks.state_bot(user_id, msg_id, callback, bot)
 
+        if 'qrcode' in callback.data:
+            await callbacks.qrcode(user_id, msg_id, callback, bot)
+
         if callback.data == 'admin_stats':
             await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
 
@@ -456,6 +460,15 @@ async def successful_payment(message: types.Message):
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
     msg = SUCCESSFUL_MESSAGE.format(order_number=order_number, cur=cur, amount=str(price))
 
+    await OrderDB.clear_basket(message.from_user.id)
+
+    if order_user_time is not None:
+        result_time = order_user_time
+        user_time_str = f'\n⏱ <b>Приготовить к {order_user_time}</b>\n'
+    else:
+        result_time = time
+        user_time_str = ''
+
     if get_json('data.json')['is_qrcode_enabled']:
         img = qrcode.make(f'http://95.216.65.93:13617/?order={order_number}')
         img_name = f'{order_number}.png'
@@ -464,18 +477,11 @@ async def successful_payment(message: types.Message):
         for file in os.listdir():
             if '.png' in file:
                 os.remove(file)
+        await SiteDB.insert_order(order_number, date, result_time)
     else:
         await message.answer(msg)
 
-    await OrderDB.clear_basket(message.from_user.id)
-
-    if order_user_time is not None:
-        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, price,
-                                     order_user_time)
-        user_time_str = f'\n⏱ <b>Приготовить к {order_user_time}</b>\n'
-    else:
-        await OrderDB.add_to_archive(message.from_user.id, order_number, order_list, comment, price, time)
-        user_time_str = ''
+    await OrderDB.insert_to_archive(message.from_user.id, order_number, order_list, comment, price, result_time)
 
     print('{'+f'"user_id": {message.from_user.id}, "order_number": {order_number}, "order_list": {order_list}, '
               f'"price": {price}{cur}, "order_user_time": {order_user_time}, "comment": {comment}, "date": '

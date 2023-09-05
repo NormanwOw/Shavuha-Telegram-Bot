@@ -215,6 +215,16 @@ async def state_bot(user_id: int, msg_id: int, callback: types.CallbackQuery, bo
     await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
 
 
+async def qrcode(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
+    if 'off' in callback.data:
+        set_json('data.json', {'is_qrcode_enabled': 0})
+        await callback.answer('Получение заказов по QR коду остановлено', show_alert=True)
+    else:
+        set_json('data.json', {'is_qrcode_enabled': 1})
+        await callback.answer('Получение заказов по QR коду запущено', show_alert=True)
+    await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
+
+
 async def delete_mail(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
     if 'yes' in callback.data:
         state = await OrderDB.delete_mail()
