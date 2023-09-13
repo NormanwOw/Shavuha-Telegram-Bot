@@ -1,4 +1,3 @@
-import types
 from datetime import datetime
 import qrcode
 import os
@@ -121,7 +120,7 @@ async def change_product_image(message: types.Message, state: FSMContext):
         await message.delete()
         return
     product = await ChangeProduct.get_product()
-    path = f'/root/shava-bot/{product}.png'
+    path = f'/root/shava_bot/{product}.png'
     try:
         await functions.message_filter(message, bot, path)
         await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + EDIT_MENU_TITLE,
@@ -194,7 +193,7 @@ async def add_product_image(message: types.Message, state: FSMContext):
         return
     product_list = ProductList.get_product_list()
     product = product_list[0]
-    path = f'/root/shava-bot/{product}.png'
+    path = f'/root/shava_bot/{product}.png'
     try:
         await functions.message_filter(message, bot, path)
         await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
@@ -225,7 +224,7 @@ async def change_main_image(message: types.Message, state: FSMContext):
     if message.text:
         await message.delete()
         return
-    path = '/root/shava-bot/main.png'
+    path = '/root/shava_bot/main.png'
     try:
         await functions.message_filter(message, bot, path)
         await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + SETTINGS_TITLE,
