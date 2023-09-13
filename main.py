@@ -1,3 +1,4 @@
+import types
 from datetime import datetime
 import qrcode
 import os
@@ -12,6 +13,7 @@ from aiogram.types.message import ContentType
 
 import callbacks
 import commands
+import functions
 import pages
 from config import API_TOKEN
 from functions import *
@@ -30,15 +32,15 @@ class ProductList:
     product_list = []
 
     @classmethod
-    async def append_product_list(cls, product):
-        cls.product_list.append(product)
+    def append_product_list(cls, item):
+        cls.product_list.append(item)
 
     @classmethod
-    async def get_product_list(cls):
+    def get_product_list(cls):
         return cls.product_list
 
     @classmethod
-    async def clear_product_list(cls):
+    def clear_product_list(cls):
         cls.product_list.clear()
 
 
@@ -111,17 +113,34 @@ async def change_product_desc(message: types.Message, state: FSMContext):
     await message.delete()
 
 
-@dp.message_handler(state=ChangeProduct.get_new_product_image)
+@dp.message_handler(state=ChangeProduct.get_new_product_image,
+                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT, types.ContentType.STICKER,
+                                   types.ContentType.TEXT])
 async def change_product_image(message: types.Message, state: FSMContext):
+    if message.text:
+        await message.delete()
+        return
+    product = await ChangeProduct.get_product()
+    path = f'/root/shava-bot/{product}.png'
     try:
-        await bot.send_photo(message.from_user.id, photo=message.text)
-        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n'+EDIT_MENU_TITLE,
+        await functions.message_filter(message, bot, path)
+        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + EDIT_MENU_TITLE,
                                reply_markup=await pages.edit_menu_page(False))
-        await OrderDB.set_product_image(message.text, await ChangeProduct.get_product())
+
+        ya_disk_path = f'/shava-bot-data/{product}.png'
+        ya_disk.remove(ya_disk_path)
+        ya_disk.upload(path, ya_disk_path)
+        await OrderDB.set_product_image(ya_disk.get_download_link(ya_disk_path), product)
+
         await state.finish()
-    except (aiogram.utils.exceptions.WrongFileIdentifier, aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение ненайдено', reply_markup=ikb_cancel)
-    await message.delete()
+    except (aiogram.utils.exceptions.BadRequest, TypeError):
+        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
+                               reply_markup=ikb_cancel)
+        await message.delete()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
 
 
 @dp.message_handler(state=ChangeProduct.get_new_price)
@@ -141,7 +160,7 @@ async def change_product_price(message: types.Message, state: FSMContext):
 async def add_product_name(message: types.Message):
     if len(message.text) > 1:
         await bot.send_message(message.from_user.id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
-        await ProductList.append_product_list(message.text)
+        ProductList.append_product_list(message.text)
         await AddProduct.get_price.set()
     await message.delete()
 
@@ -151,7 +170,7 @@ async def add_product_price(message: types.Message):
     try:
         if int(message.text) >= 0:
             await bot.send_message(message.from_user.id, 'Введите состав:', reply_markup=ikb_cancel)
-            await ProductList.append_product_list(int(message.text))
+            ProductList.append_product_list(int(message.text))
             await AddProduct.get_desc.set()
     except ValueError:
         pass
@@ -160,34 +179,72 @@ async def add_product_price(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_desc)
 async def add_product_desc(message: types.Message):
-    await ProductList.append_product_list(message.text)
-    await bot.send_message(message.from_user.id, 'Введите ссылку на изображение:', reply_markup=ikb_add_image)
+    ProductList.append_product_list(message.text)
+    await bot.send_message(message.from_user.id, 'Отправьте изображение:', reply_markup=ikb_add_image)
     await AddProduct.get_image.set()
     await message.delete()
 
 
-@dp.message_handler(state=AddProduct.get_image)
+@dp.message_handler(state=AddProduct.get_image,
+                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT,
+                                   types.ContentType.STICKER, types.ContentType.TEXT])
 async def add_product_image(message: types.Message, state: FSMContext):
-    await ProductList.append_product_list(message.text)
-    await OrderDB.add_product(await ProductList.get_product_list())
-    await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n'+EDIT_MENU_TITLE,
-                           reply_markup=await pages.edit_menu_page(False))
-    await ProductList.clear_product_list()
-    await state.finish()
-    await message.delete()
-
-
-@dp.message_handler(state=ChangeMainImage.get_main_image)
-async def change_main_image(message: types.Message, state: FSMContext):
+    if message.text:
+        await message.delete()
+        return
+    product_list = ProductList.get_product_list()
+    product = product_list[0]
+    path = f'/root/shava-bot/{product}.png'
     try:
-        await bot.send_photo(message.from_user.id, photo=message.text)
-        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n'+SETTINGS_TITLE,
-                               reply_markup=await pages.settings_page())
-        await OrderDB.set_url('main_image', message.text)
+        await functions.message_filter(message, bot, path)
+        await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
+                               reply_markup=await pages.edit_menu_page(False))
+
+        ya_disk_path = f'/shava-bot-data/{product}.png'
+        ya_disk.upload(path, ya_disk_path)
+
+        ProductList.append_product_list(ya_disk.get_download_link(ya_disk_path))
+        await OrderDB.add_product(ProductList.get_product_list())
+        ProductList.clear_product_list()
+
         await state.finish()
-    except (aiogram.utils.exceptions.WrongFileIdentifier, aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение не найдено', reply_markup=ikb_cancel)
-    await message.delete()
+    except (aiogram.utils.exceptions.BadRequest, TypeError):
+        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
+                               reply_markup=ikb_cancel)
+        await message.delete()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+@dp.message_handler(state=ChangeMainImage.get_main_image,
+                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT,
+                                   types.ContentType.STICKER, types.ContentType.TEXT])
+async def change_main_image(message: types.Message, state: FSMContext):
+    if message.text:
+        await message.delete()
+        return
+    path = '/root/shava-bot/main.png'
+    try:
+        await functions.message_filter(message, bot, path)
+        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + SETTINGS_TITLE,
+                               reply_markup=await pages.settings_page())
+
+        ya_disk_path = '/shava-bot-data/main.png'
+        ya_disk.remove(ya_disk_path)
+        ya_disk.upload(path, ya_disk_path)
+
+        await OrderDB.set_url('main_image', ya_disk.get_download_link(ya_disk_path))
+        await state.finish()
+    except (aiogram.utils.exceptions.BadRequest, TypeError):
+        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
+                               reply_markup=ikb_cancel)
+        await message.delete()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
 
 
 @dp.message_handler(state=OrderComment.get_comment)

@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import datetime
 
@@ -5,7 +6,11 @@ from functions import TIME_ZONE
 
 
 class SiteDB:
-    path = '../../var/www/shava-site/shava/db.sqlite3'
+    if os.name == 'nt':
+        path = '..\shava-site\shava\db.sqlite3'
+    else:
+        path = '../../var/www/shava-site/shava/db.sqlite3'
+
     __connection = sqlite3.connect(path)
     __cursor = __connection.cursor()
 

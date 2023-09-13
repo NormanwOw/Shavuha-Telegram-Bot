@@ -202,7 +202,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
 
         if callback.data == 'change_main_image':
-            await bot.edit_message_text('Введите ссылку на изображение:', user_id, msg_id, reply_markup=ikb_cancel)
+            await bot.edit_message_text('Отправьте изображение:', user_id, msg_id, reply_markup=ikb_cancel)
             await ChangeMainImage.get_main_image.set()
             await callback.answer('Редактирование изображения')
 
@@ -315,7 +315,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             product = callback.data[13:]
             await ChangeProduct.set_product(product)
             await ChangeProduct.get_new_product_image.set()
-            await bot.send_message(user_id, 'Введите ссылку на изображение:', reply_markup=ikb_cancel)
+            await bot.send_message(user_id, 'Отправьте изображение:', reply_markup=ikb_cancel)
             await callback.answer('Редактирование изображения')
 
         if 'change_price' in callback.data:
@@ -353,9 +353,10 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
         if 'remove_product' in callback.data:
             product = callback.data[15:]
-            await OrderDB.delete_product(product)
             await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
             await callback.answer(f'Товар удалён', show_alert=True)
+            await OrderDB.delete_product(product)
+            ya_disk.remove(f'/shava-bot-data/{product}.png')
 
         if callback.data == 'back_to_edit_menu':
             await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
@@ -415,7 +416,7 @@ async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state, produc
         await callback.answer('Ввод отменён', show_alert=True)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
     if callback.data == 'without_image':
-        product_list = await product.get_product_list()
+        product_list = product.get_product_list()
         if len(product_list) == 3:
             product_list.append(None)
         await OrderDB.add_product(product_list)

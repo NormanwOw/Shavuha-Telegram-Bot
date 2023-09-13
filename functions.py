@@ -4,6 +4,7 @@ import string
 import hashlib
 import datetime
 
+import aiogram.utils.exceptions
 from aiogram import types, Bot
 
 from order_db import OrderDB
@@ -124,3 +125,17 @@ async def error_to_db(message: types.Message, bot):
     await OrderDB.insert_error(message.from_user.full_name, message.text, date, get_time()[0])
     await bot.send_message(message.from_user.id, ERROR_F)
     await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)
+
+
+async def message_filter(message: types.Message, bot: Bot, path: str):
+    if message.photo:
+        await message.photo[-1].download(destination_file=path)
+    elif message.document:
+        for file_format in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+            if file_format not in message.document.file_name:
+                path = None
+        await message.document.download(destination_file=path)
+    else:
+        await message.sticker.download(destination_file=path)
+    await bot.send_photo(message.from_user.id, open(path, 'rb'))
+    await message.delete()
