@@ -5,7 +5,7 @@ import os
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
 
-from config import PAY_TOKEN
+from config import PAY_TOKEN, logger
 from messages import *
 from functions import *
 from markups import *
@@ -13,6 +13,7 @@ from states import *
 import pages
 
 
+@logger.catch
 async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
     # BASKET PAGE CALLBACKS
     # ==================================================================================================================

@@ -4,10 +4,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from order_db import OrderDB
 from main import menu
 from functions import get_json
+from config import logger
 
 TIME_ZONE = 5
 
 
+@logger.catch
 async def basket_menu_page(user_id) -> InlineKeyboardMarkup:
     prices = await OrderDB.get_prices()
     order = await OrderDB.get_order_list(user_id)
@@ -32,6 +34,7 @@ async def basket_menu_page(user_id) -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def product_page(user_id, product) -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
     ikb.row(InlineKeyboardButton('-', callback_data=f'-{product}'),
@@ -48,6 +51,7 @@ async def product_page(user_id, product) -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def employees_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
     employees_list = await OrderDB.get_id_name_by_status('Повар')
@@ -62,6 +66,7 @@ async def employees_page() -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
     rows = 6
     ikb = InlineKeyboardMarkup(row_width=3)
@@ -93,6 +98,7 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def settings_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
     data = get_json('data.json')
@@ -114,6 +120,7 @@ async def settings_page() -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def mails_page() -> InlineKeyboardMarkup:
     mails_count = await OrderDB.get_mails_count()
     mails = f'Мои рассылки ({mails_count})' if mails_count else 'Мои рассылки'
@@ -126,6 +133,7 @@ async def mails_page() -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def my_mails(page: int) -> InlineKeyboardMarkup:
     pages = await OrderDB.get_mails_count()
 
@@ -140,6 +148,7 @@ async def my_mails(page: int) -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def set_time_page(user_id: int, hour: int, minute: int) -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=6)
     if hour > 23:
@@ -153,6 +162,7 @@ async def set_time_page(user_id: int, hour: int, minute: int) -> InlineKeyboardM
         minute = 45
     elif 45 <= minute < 60:
         minute = 0
+        hour += 1
 
     hour_var = 0
     minute_var = 0
@@ -192,6 +202,7 @@ async def set_time_page(user_id: int, hour: int, minute: int) -> InlineKeyboardM
     return ikb
 
 
+@logger.catch
 async def comment_page() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
     ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_basket'))
@@ -200,6 +211,7 @@ async def comment_page() -> InlineKeyboardMarkup:
     return ikb
 
 
+@logger.catch
 async def my_orders_navigation(page: int, pages: int) -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
     ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))

@@ -1,6 +1,10 @@
 import yadisk
 import os
 from dotenv import load_dotenv, find_dotenv
+from loguru import logger
+
+logger.add('logs.log', format='{time} {level} {message}', level='DEBUG')
+
 
 load_dotenv(find_dotenv())
 

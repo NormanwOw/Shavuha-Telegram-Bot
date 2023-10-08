@@ -4,16 +4,16 @@ import string
 import hashlib
 import datetime
 
-import aiogram.utils.exceptions
 from aiogram import types, Bot
 
 from order_db import OrderDB
-from config import ya_disk
+from config import ya_disk, logger
 from messages import ERROR_F
 
 TIME_ZONE = 5
 
 
+@logger.catch
 def set_json(path: str, data: dict):
     json_data = get_json(path)
     json_data = json_data | data
@@ -21,11 +21,13 @@ def set_json(path: str, data: dict):
         json.dump(json_data, file, ensure_ascii=False)
 
 
+@logger.catch
 def get_json(path: str) -> dict:
     with open(path, 'r') as file:
         return json.load(file)
 
 
+@logger.catch
 def gen_password() -> str:
     password = ''
     pw_str = string.digits+string.ascii_uppercase
@@ -37,6 +39,7 @@ def gen_password() -> str:
     return password
 
 
+@logger.catch
 def update_password() -> str:
     pw = gen_password()
     pw_dict = {'employee_password': pw}
@@ -44,6 +47,7 @@ def update_password() -> str:
     return pw
 
 
+@logger.catch
 def generate_id() -> str:
     hash_data = ''
     for i in range(10):
@@ -52,6 +56,7 @@ def generate_id() -> str:
     return hashlib.md5(hash_data.encode()).hexdigest()
 
 
+@logger.catch
 async def generate_order_number() -> int:
     order_number = random.randint(100000, 999999)
     while order_number in await OrderDB.get_order_numbers():
@@ -62,6 +67,7 @@ async def generate_order_number() -> int:
     return order_number
 
 
+@logger.catch
 def get_time():
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     time = now.strftime('%H:%M')
@@ -71,6 +77,7 @@ def get_time():
     return time, hour, minute
 
 
+@logger.catch
 async def get_24h_orders_list(message):
     orders_24 = await OrderDB.get_orders(1)
     if len(orders_24) == 0:
@@ -87,6 +94,7 @@ async def get_24h_orders_list(message):
         await message.answer(answer)
 
 
+@logger.catch
 async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
                                   price: int, date: str, time: str):
     if comment is None:
@@ -106,6 +114,7 @@ async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order
                                f'{date} {time}')
 
 
+@logger.catch
 async def backup(date):
     data = get_json('data.json')
     last_backup = data['backup']
@@ -119,6 +128,7 @@ async def backup(date):
         set_json('data.json', data)
 
 
+@logger.catch
 async def error_to_db(message: types.Message, bot):
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = now.strftime('%d.%m.%Y')
@@ -127,6 +137,7 @@ async def error_to_db(message: types.Message, bot):
     await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)
 
 
+@logger.catch
 async def message_filter(message: types.Message, bot: Bot, path: str):
     if message.photo:
         await message.photo[-1].download(destination_file=path)
