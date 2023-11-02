@@ -48,7 +48,7 @@ class OrderDB:
             new_order_list = json.dumps(new_order_list, ensure_ascii=False)
             with cls.__connection:
                 cls.__cursor.execute("INSERT INTO orders (user_id, order_list) VALUES (?, ?)",
-                                     (user_id, new_order_list,))
+                                     (user_id, new_order_list))
         else:
             for item in new_order_list:
                 if item in order_list:
@@ -63,14 +63,14 @@ class OrderDB:
 
                 order_list = json.dumps(order_list, ensure_ascii=False)
             with cls.__connection:
-                cls.__cursor.execute("UPDATE orders SET order_list = ? WHERE user_id = ?", (order_list, user_id,))
+                cls.__cursor.execute("UPDATE orders SET order_list = ? WHERE user_id = ?", (order_list, user_id))
 
         await OrderDB.update_price(user_id)
 
     @classmethod
     async def set_price(cls, user_id: int, price: int):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET price = ? WHERE user_id = ?", (price, user_id,))
+            cls.__cursor.execute("UPDATE orders SET price = ? WHERE user_id = ?", (price, user_id))
 
     @classmethod
     async def get_price(cls, user_id: int) -> int:
@@ -80,7 +80,7 @@ class OrderDB:
     @classmethod
     async def set_order_time(cls, user_id: int, time: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET order_time = ? WHERE user_id = ?", (time, user_id,))
+            cls.__cursor.execute("UPDATE orders SET order_time = ? WHERE user_id = ?", (time, user_id))
 
     @classmethod
     async def get_order_time(cls, user_id: int) -> str:
@@ -90,7 +90,7 @@ class OrderDB:
     @classmethod
     async def set_order_user_time(cls, user_id: int, time: str or None):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET order_user_time = ? WHERE user_id = ?", (time, user_id,))
+            cls.__cursor.execute("UPDATE orders SET order_user_time = ? WHERE user_id = ?", (time, user_id))
 
     @classmethod
     async def get_order_user_time(cls, user_id: int) -> str:
@@ -106,7 +106,7 @@ class OrderDB:
     @classmethod
     async def set_comment(cls, user_id: int, comment: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET comment = ? WHERE user_id = ?", (comment, user_id,))
+            cls.__cursor.execute("UPDATE orders SET comment = ? WHERE user_id = ?", (comment, user_id))
 
     @classmethod
     async def get_comment(cls, user_id: int):
@@ -156,17 +156,17 @@ class OrderDB:
     @classmethod
     async def set_product_desc(cls, desc: str, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET desc = ? WHERE product = ?", (desc, product,))
+            cls.__cursor.execute("UPDATE prices SET desc = ? WHERE product = ?", (desc, product))
 
     @classmethod
     async def set_product_image(cls, url: str, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET url = ? WHERE product = ?", (url, product,))
+            cls.__cursor.execute("UPDATE prices SET url = ? WHERE product = ?", (url, product))
 
     @classmethod
     async def set_product_price(cls, price: int, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET price = ? WHERE product = ?", (price, product,))
+            cls.__cursor.execute("UPDATE prices SET price = ? WHERE product = ?", (price, product))
 
     @classmethod
     async def delete_product(cls, product: str):
@@ -279,7 +279,7 @@ class OrderDB:
         with cls.__connection:
             cls.__cursor.execute("INSERT INTO employees (user_id, full_name, status, date) "
                                  "VALUES (?, ?, ?, strftime('%d.%m.%Y', date('now')))",
-                                 (user_id, full_name, status,))
+                                 (user_id, full_name, status))
 
     @classmethod
     async def get_id_by_status(cls, status: str) -> list:
@@ -331,7 +331,7 @@ class OrderDB:
     @classmethod
     async def set_count(cls, user_id: int, count=1):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE temp SET count = ? WHERE user_id = ?", (count, user_id,))
+            cls.__cursor.execute("UPDATE temp SET count = ? WHERE user_id = ?", (count, user_id))
 
     @classmethod
     async def get_count(cls, user_id: int) -> int:
@@ -356,7 +356,7 @@ class OrderDB:
     @classmethod
     async def set_url(cls, title: str, url: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE urls SET url = ? WHERE title = ?", (url, title,))
+            cls.__cursor.execute("UPDATE urls SET url = ? WHERE title = ?", (url, title))
 
     @classmethod
     async def get_url(cls, title: str) -> str:
@@ -378,7 +378,7 @@ class OrderDB:
     async def insert_mail(cls, mail: str):
         with cls.__connection:
             cls.__cursor.execute("UPDATE mails SET selected = 0")
-            cls.__cursor.execute("INSERT INTO mails (mail, selected) VALUES (?, ?)", (mail, 1,))
+            cls.__cursor.execute("INSERT INTO mails (mail, selected) VALUES (?, ?)", (mail, 1))
 
     @classmethod
     async def get_mail(cls) -> tuple:

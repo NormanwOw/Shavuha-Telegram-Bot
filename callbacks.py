@@ -5,7 +5,7 @@ import os
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
 
-from config import PAY_TOKEN, logger
+from config import PAY_TOKEN, TIME_ZONE, logger
 from messages import *
 from functions import *
 from markups import *
@@ -307,7 +307,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             product = callback.data[13:]
             await ChangeProduct.set_product(product)
             await ChangeProduct.get_new_product_image.set()
-            await bot.send_message(user_id, 'Отправьте изображение:', reply_markup=ikb_cancel)
+            await bot.send_message(user_id, 'Отправьте ссылку на изображение:', reply_markup=ikb_cancel)
             await callback.answer('Редактирование изображения')
 
         if 'change_price' in callback.data:
@@ -348,7 +348,6 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
             await callback.answer(f'Товар удалён', show_alert=True)
             await OrderDB.delete_product(product)
-            ya_disk.remove(f'/shava-bot-data/{product}.png')
 
         if callback.data == 'back_to_edit_menu':
             await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,

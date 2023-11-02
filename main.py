@@ -13,7 +13,7 @@ import callbacks
 import commands
 import functions
 import pages
-from config import API_TOKEN, logger
+from config import API_TOKEN, TIME_ZONE, logger
 from functions import *
 from markups import *
 from messages import *
@@ -55,11 +55,6 @@ async def admin_login(message: types.Message):
 @dp.message_handler(commands=['my_orders'])
 async def my_orders(message: types.Message):
     await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
-
-
-@dp.message_handler(commands=['backup'])
-async def admin_backup(message: types.Message):
-    await commands.admin_backup(message)
 
 
 @dp.message_handler(commands=['error'])
@@ -110,34 +105,17 @@ async def change_product_desc(message: types.Message, state: FSMContext):
     await message.delete()
 
 
-@dp.message_handler(state=ChangeProduct.get_new_product_image,
-                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT, types.ContentType.STICKER,
-                                   types.ContentType.TEXT])
+@dp.message_handler(state=ChangeProduct.get_new_product_image)
 async def change_product_image(message: types.Message, state: FSMContext):
-    if message.text:
-        await message.delete()
-        return
     product = await ChangeProduct.get_product()
-    path = f'/root/shava_bot/{product}.png'
     try:
-        await functions.message_filter(message, bot, path)
-        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page(False))
-
-        ya_disk_path = f'/shava-bot-data/{product}.png'
-        ya_disk.remove(ya_disk_path)
-        ya_disk.upload(path, ya_disk_path)
-        await OrderDB.set_product_image(ya_disk.get_download_link(ya_disk_path), product)
-
+        await bot.send_photo(message.from_user.id, message.text, '✅ Изображение установлено')
+        await message.answer(EDIT_MENU_TITLE, reply_markup=await pages.edit_menu_page())
+        await OrderDB.set_product_image(message.text, product)
         await state.finish()
-    except (aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
-                               reply_markup=ikb_cancel)
-        await message.delete()
-    try:
-        os.remove(path)
-    except FileNotFoundError:
-        pass
+    except aiogram.utils.exceptions.BadRequest:
+        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение не найдено', reply_markup=ikb_cancel)
+    await message.delete()
 
 
 @dp.message_handler(state=ChangeProduct.get_new_price)
@@ -182,66 +160,32 @@ async def add_product_desc(message: types.Message):
     await message.delete()
 
 
-@dp.message_handler(state=AddProduct.get_image,
-                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT,
-                                   types.ContentType.STICKER, types.ContentType.TEXT])
+@dp.message_handler(state=AddProduct.get_image)
 async def add_product_image(message: types.Message, state: FSMContext):
-    if message.text:
-        await message.delete()
-        return
-    product_list = ProductList.get_product_list()
-    product = product_list[0]
-    path = f'/root/shava_bot/{product}.png'
     try:
-        await functions.message_filter(message, bot, path)
+        await bot.send_photo(message.from_user.id, message.text)
         await bot.send_message(message.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
                                reply_markup=await pages.edit_menu_page(False))
 
-        ya_disk_path = f'/shava-bot-data/{product}.png'
-        ya_disk.upload(path, ya_disk_path)
-
-        ProductList.append_product_list(ya_disk.get_download_link(ya_disk_path))
+        ProductList.append_product_list(message.text)
         await OrderDB.add_product(ProductList.get_product_list())
         ProductList.clear_product_list()
-
         await state.finish()
-    except (aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
-                               reply_markup=ikb_cancel)
-        await message.delete()
-    try:
-        os.remove(path)
-    except FileNotFoundError:
-        pass
+    except aiogram.utils.exceptions.BadRequest:
+        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение не найдено', reply_markup=ikb_cancel)
+    await message.delete()
 
 
-@dp.message_handler(state=ChangeMainImage.get_main_image,
-                    content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT,
-                                   types.ContentType.STICKER, types.ContentType.TEXT])
+@dp.message_handler(state=ChangeMainImage.get_main_image)
 async def change_main_image(message: types.Message, state: FSMContext):
-    if message.text:
-        await message.delete()
-        return
-    path = '/root/shava_bot/main.png'
     try:
-        await functions.message_filter(message, bot, path)
-        await bot.send_message(message.from_user.id, '✅ Изображение установлено\n\n' + SETTINGS_TITLE,
-                               reply_markup=await pages.settings_page())
-
-        ya_disk_path = '/shava-bot-data/main.png'
-        ya_disk.remove(ya_disk_path)
-        ya_disk.upload(path, ya_disk_path)
-
-        await OrderDB.set_url('main_image', ya_disk.get_download_link(ya_disk_path))
+        await bot.send_photo(message.from_user.id, message.text, '✅ Изображение установлено')
+        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await OrderDB.set_url('main_image', message.text)
         await state.finish()
-    except (aiogram.utils.exceptions.BadRequest, TypeError):
-        await bot.send_message(message.from_user.id, 'Неверный формат файла (.jpg, .jpeg, .gif, .png)',
-                               reply_markup=ikb_cancel)
-        await message.delete()
-    try:
-        os.remove(path)
-    except FileNotFoundError:
-        pass
+    except aiogram.utils.exceptions.BadRequest:
+        await bot.send_message(message.from_user.id, 'Неверная ссылка, изображение не найдено', reply_markup=ikb_cancel)
+    await message.delete()
 
 
 @dp.message_handler(state=OrderComment.get_comment)
@@ -368,7 +312,6 @@ async def successful_payment(message: types.Message):
               f'{date}, "time": {time}'+'}')
 
     await send_order_to_employees(comment, payload, bot, order_number, user_time_str, price, date, time)
-    await backup(date)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

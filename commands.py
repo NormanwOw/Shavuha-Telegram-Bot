@@ -26,13 +26,6 @@ async def admin_login(message: types.Message):
     await message.delete()
 
 
-async def admin_backup(message: types.Message):
-    adm_list = await OrderDB.get_id_by_status('Admin')
-    await message.delete()
-    if message.from_user.id in adm_list:
-        ya_disk.download('/database.db', 'database.db')
-
-
 async def get_error_msg(message: types.Message):
     await message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
     await message.delete()

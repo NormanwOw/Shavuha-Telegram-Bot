@@ -7,10 +7,8 @@ import datetime
 from aiogram import types, Bot
 
 from order_db import OrderDB
-from config import ya_disk, logger
+from config import TIME_ZONE, logger
 from messages import ERROR_F
-
-TIME_ZONE = 5
 
 
 @logger.catch
@@ -115,38 +113,9 @@ async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order
 
 
 @logger.catch
-async def backup(date):
-    data = get_json('data.json')
-    last_backup = data['backup']
-    d = datetime.datetime.strptime(last_backup, '%d.%m.%Y')
-    t = datetime.datetime.today()
-    delta = d - t
-    if delta.days < -3:
-        ya_disk.remove('/database.db')
-        ya_disk.upload('database.db', '/database.db')
-        data['backup'] = date
-        set_json('data.json', data)
-
-
-@logger.catch
 async def error_to_db(message: types.Message, bot):
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = now.strftime('%d.%m.%Y')
     await OrderDB.insert_error(message.from_user.full_name, message.text, date, get_time()[0])
     await bot.send_message(message.from_user.id, ERROR_F)
     await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)
-
-
-@logger.catch
-async def message_filter(message: types.Message, bot: Bot, path: str):
-    if message.photo:
-        await message.photo[-1].download(destination_file=path)
-    elif message.document:
-        for file_format in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
-            if file_format not in message.document.file_name:
-                path = None
-        await message.document.download(destination_file=path)
-    else:
-        await message.sticker.download(destination_file=path)
-    await bot.send_photo(message.from_user.id, open(path, 'rb'))
-    await message.delete()
