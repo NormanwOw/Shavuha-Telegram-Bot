@@ -3,6 +3,8 @@ import os
 from dotenv import load_dotenv, find_dotenv
 from loguru import logger
 
+TIME_ZONE = 5
+
 logger.add('logs.log', format='{time} {level} {message}', level='DEBUG')
 
 

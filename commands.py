@@ -2,6 +2,8 @@ from callbacks import *
 from states import *
 from site_db import SiteDB
 
+from config import IS_QR_CODE
+
 
 async def start_command(bot: Bot, message: types.Message):
     state = get_json('data.json')['is_bot_enabled']

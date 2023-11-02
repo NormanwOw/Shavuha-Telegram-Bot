@@ -4,9 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from order_db import OrderDB
 from main import menu
 from functions import get_json
-from config import logger
-
-TIME_ZONE = 5
+from config import TIME_ZONE, logger
 
 
 @logger.catch

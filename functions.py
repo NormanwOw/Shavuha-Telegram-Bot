@@ -7,10 +7,9 @@ import datetime
 from aiogram import types, Bot
 
 from order_db import OrderDB
-from config import ya_disk, logger
+from config import ya_disk, logger, TIME_ZONE
 from messages import ERROR_F
 
-TIME_ZONE = 5
 
 
 @logger.catch

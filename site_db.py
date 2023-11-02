@@ -2,10 +2,11 @@ import os
 import sqlite3
 import datetime
 
-from functions import TIME_ZONE
+from config import TIME_ZONE
 
 
 class SiteDB:
+
     if os.name == 'nt':
         path = '..\shava-site\shava\db.sqlite3'
     else:

@@ -14,7 +14,7 @@ import callbacks
 import commands
 import functions
 import pages
-from config import API_TOKEN, logger
+from config import API_TOKEN, TIME_ZONE, logger
 from functions import *
 from markups import *
 from messages import *
