@@ -1,5 +1,4 @@
 from datetime import datetime
-import qrcode
 import os
 
 import aiogram.utils.exceptions
@@ -19,7 +18,6 @@ from functions import *
 from markups import *
 from messages import *
 from order_db import OrderDB
-from site_db import SiteDB
 from states import *
 
 bot = Bot(API_TOKEN, parse_mode='HTML')
@@ -353,7 +351,7 @@ async def successful_payment(message: types.Message):
     comment = await OrderDB.get_comment(message.from_user.id)
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
     msg = SUCCESSFUL_MESSAGE.format(order_number=order_number, cur=cur, amount=str(price))
-
+    await bot.send_message(message.from_user.id, msg)
     await OrderDB.clear_basket(message.from_user.id)
 
     if order_user_time is not None:
@@ -362,18 +360,6 @@ async def successful_payment(message: types.Message):
     else:
         result_time = time
         user_time_str = ''
-
-    if get_json('data.json')['is_qrcode_enabled']:
-        img = qrcode.make(f'http://95.216.65.93:13617/order-page/?order={order_number}')
-        img_name = f'{order_number}.png'
-        img.save(img_name)
-        await bot.send_photo(message.from_user.id, InputFile(img_name), caption=msg)
-        for file in os.listdir():
-            if '.png' in file:
-                os.remove(file)
-        await SiteDB.insert_order(order_number, date, result_time)
-    else:
-        await message.answer(msg)
 
     await OrderDB.insert_to_archive(message.from_user.id, order_number, order_list, comment, price, result_time)
 

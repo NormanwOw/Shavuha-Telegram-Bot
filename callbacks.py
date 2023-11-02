@@ -190,15 +190,6 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 await callback.answer('Приём заказов запущен', show_alert=True)
             await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
 
-        if 'qrcode' in callback.data:
-            if 'off' in callback.data:
-                set_json('data.json', {'is_qrcode_enabled': 0})
-                await callback.answer('Получение заказов по QR коду остановлено', show_alert=True)
-            else:
-                set_json('data.json', {'is_qrcode_enabled': 1})
-                await callback.answer('Получение заказов по QR коду запущено', show_alert=True)
-            await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
-
         if callback.data == 'admin_stats':
             await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
 

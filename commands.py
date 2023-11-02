@@ -1,6 +1,5 @@
 from callbacks import *
 from states import *
-from site_db import SiteDB
 
 
 async def start_command(bot: Bot, message: types.Message):
@@ -15,7 +14,6 @@ async def start_command(bot: Bot, message: types.Message):
 
     await OrderDB.delete_temp(message.from_user.id)
     await message.delete()
-    await SiteDB.delete_expired_orders()
 
 
 async def admin_login(message: types.Message):
