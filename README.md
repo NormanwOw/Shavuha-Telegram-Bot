@@ -10,9 +10,14 @@ This is the bot for ordering and payment some products with inline mode, product
 **Aiogram** is the main libriary to working wiht Telegram API in this project.
 
 ## Install
-To get started with this BOT you need to edit the config file `config.py` and edit the constants `API_TOKEN`, `PAY_TOKEN` and `DISK_TOKEN`
+To get started with this BOT you should to edit constants `API_TOKEN` and `PAY_TOKEN` in the config file `config.py`.
 * `API_TOKEN` and `PAY_TOKEN` you can get from the [@BotFather](https://t.me/BotFather) in the Telegram application.  
-More information about this you can find [here](https://core.telegram.org/bots/tutorial)
+More information about this you can find [here](https://core.telegram.org/bots/tutorial)  
+
+then
+
+* `pip install -r requirements.txt`
+* `python main.py`
 
 ## Commands
 * `/start`, `/new` - starting message with a 'new order' button
@@ -20,3 +25,18 @@ More information about this you can find [here](https://core.telegram.org/bots/t
 * `/error` - send message to developers about some problems
 * `admin` - enter to the section of administration. Default password: '123'
 * `personal` - authorization of a new employee. After this authorization all orders will be sent to emloyee by Telegram. *The password is in the administration panel, new for each employee*
+  
+____
+  
+![page_1](http://95.216.65.93:13617/static/images/github/shava-1@0,75x.png)
+
+![page_2](http://95.216.65.93:13617/static/images/github/shava-2@0,75x.png)
+
+![page_3](http://95.216.65.93:13617/static/images/github/shava-3@0,75x.png)
+
+![page_4](http://95.216.65.93:13617/static/images/github/shava-4@0,75x.png)
+
+![page_4](http://95.216.65.93:13617/static/images/github/shava-5@0,75x.png)
+
+
+
