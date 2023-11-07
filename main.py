@@ -89,7 +89,7 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
 async def check_employee_password_dialog(message: types.Message, state: FSMContext):
     if message.text.upper() == get_json('data.json')['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
-        update_password()
+        await update_password()
         await message.answer(EMPLOYEE_MESSAGE, reply_markup=rkb_employee)
         await state.finish()
     await message.delete()
@@ -246,7 +246,7 @@ async def inline_h(query: types.InlineQuery):
                 msg = InputTextMessageContent(PRIVATE_MESSAGE)
             if product[2] is None:
                 product[2] = ''
-            item_list.append(InlineQueryResultArticle(id=generate_id(),
+            item_list.append(InlineQueryResultArticle(id=await generate_id(),
                                                       input_message_content=msg,
                                                       title=product[0],
                                                       thumb_url=product[3],

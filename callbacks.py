@@ -1,5 +1,3 @@
-from openpyxl import Workbook
-from openpyxl.styles import Alignment
 import os
 
 from aiogram.types import LabeledPrice
@@ -20,10 +18,10 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
     try:
         if 'set_time' in callback.data:
             if callback.data == 'set_time':
-                _, hour, minute = get_time()
+                time, hour, minute = await get_time()
                 await bot.edit_message_text(SET_TIME_MESSAGE, user_id, msg_id,
                                             reply_markup=await pages.set_time_page(user_id, hour, minute))
-                await OrderDB.set_order_time(user_id, get_time()[0])
+                await OrderDB.set_order_time(user_id, time)
             elif callback.data == 'cancel_set_time':
                 if await OrderDB.get_order_user_time(user_id) is None:
                     await callback.answer()
@@ -99,7 +97,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.basket_menu_page(user_id))
 
         if 'time_page' in callback.data:
-            _, hour, minute = get_time()
+            _, hour, minute = await get_time()
             if 'next' in callback.data:
                 hour += 6
             try:
@@ -141,8 +139,9 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
         if 'basket_add' in callback.data:
             product = callback.data[11:]
+            time = await get_time()
             await OrderDB.temp_to_order(user_id)
-            await OrderDB.set_order_time(user_id, get_time()[0])
+            await OrderDB.set_order_time(user_id, time[0])
             await callback.answer('Товар добавлен в корзину')
             await bot.edit_message_reply_markup(user_id, msg_id,
                                                 reply_markup=await pages.product_page(user_id, product))
@@ -183,10 +182,10 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
         if 'state_bot' in callback.data:
             if 'off' in callback.data:
-                set_json('data.json', {'is_bot_enabled': 0})
+                await set_json('data.json', {'is_bot_enabled': 0})
                 await callback.answer('Приём заказов остановлен', show_alert=True)
             else:
-                set_json('data.json', {'is_bot_enabled': 1})
+                await set_json('data.json', {'is_bot_enabled': 1})
                 await callback.answer('Приём заказов запущен', show_alert=True)
             await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
 
@@ -278,7 +277,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 # ======================================================================================================================
 
         if callback.data == 'change_password':
-            pw = update_password()
+            pw = await update_password()
             await bot.edit_message_text(EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
                                         user_id, msg_id, reply_markup=await pages.employees_page())
 
@@ -355,6 +354,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
 # MY ORDERS CALLBACKS
 # ======================================================================================================================
+
         if 'my_orders' in callback.data:
             data = callback.data.split()
             page = int(data[1])
@@ -369,37 +369,6 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
     except aiogram.utils.exceptions.MessageNotModified:
         pass
     await callback.answer()
-
-
-async def get_xlsx() -> str:
-    wb = Workbook()
-    ws = wb.active
-    ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
-
-    table = ['A', 'B', 'C', 'D', 'E']
-
-    for ch in table:
-        cell = ws[f'{ch}1']
-        cell.style = 'Accent1'
-        cell.alignment = Alignment(horizontal='center')
-
-    for i, order in enumerate(await OrderDB.get_all_from_archive()):
-        ws.append([order[i] for i in [1, 4, 3, 6, 7]])
-        ws[f'C{i + 2}'].number_format = '#,## ₽'
-        ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')
-        ws[f'E{i + 2}'].alignment = Alignment(horizontal='right')
-
-    ws.column_dimensions["A"].width = 15
-    ws.column_dimensions["B"].width = 60
-    ws.column_dimensions["C"].width = 12
-    ws.column_dimensions["D"].width = 13
-    ws.column_dimensions["E"].width = 10
-
-    now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
-    now = now.strftime('%d.%m.%Y') + '.xlsx'
-    wb.save(now)
-
-    return now
 
 
 async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state, product):
@@ -420,27 +389,6 @@ async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state, produc
 async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
     user_orders = await OrderDB.get_user_orders(message.from_user.id)
     user_orders_count = len(user_orders)
-    rows = 5
-
-    def __set_answer(c):
-        num = 1
-        answer = ''
-        if selected_page == 0:
-            or_num = [_ for _ in range(1, user_orders_count + 1)][c * -1:]
-            for order_number, price, order_list, date, time in user_orders[c * -1:]:
-                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
-                num += 1
-            return answer
-        else:
-            e = selected_page * rows
-            s = e - rows
-            or_num = [_ for _ in range(1, user_orders_count + 1)][s:e]
-            for order_number, price, order_list, date, time in user_orders[s:e]:
-                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
-                num += 1
-            return answer
 
     if user_orders_count != 0:
         if user_orders_count > 5:
@@ -452,24 +400,32 @@ async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
                 last_page = 5
 
             if selected_page == 0:
-                pg = total_pages
+                await message.answer(
+                    await set_answer(last_page, selected_page, user_orders_count, user_orders),
+                    reply_markup=await pages.my_orders_navigation(total_pages, total_pages)
+                )
             else:
-                pg = selected_page
-            if selected_page == 0:
-                await message.answer(__set_answer(last_page),
-                                     reply_markup=await pages.my_orders_navigation(pg, total_pages))
-            else:
-                await bot.edit_message_text(__set_answer(last_page), user_id, msg_id,
-                                            reply_markup=await pages.my_orders_navigation(pg, total_pages))
+                await bot.edit_message_text(
+                    await set_answer(last_page, selected_page, user_orders_count, user_orders),
+                    user_id,
+                    msg_id,
+                    reply_markup=await pages.my_orders_navigation(selected_page, total_pages)
+                )
         else:
             if selected_page == 0:
-                await message.answer(__set_answer(user_orders_count))
+                await message.answer(
+                    await set_answer(user_orders_count, selected_page, user_orders_count, user_orders)
+                )
             else:
-                await bot.send_message(user_id, __set_answer(user_orders_count))
+                await bot.send_message(
+                    user_id,
+                    await set_answer(user_orders_count, selected_page, user_orders_count, user_orders)
+                )
     else:
         if selected_page == 0:
             await message.answer('Список заказов пуст')
         else:
             await bot.send_message(user_id, 'Список заказов пуст')
+
     if selected_page == 0:
         await bot.delete_message(user_id, msg_id)
