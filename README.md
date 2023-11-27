@@ -7,7 +7,7 @@ Actual version of this bot running here - [@za_uglom_bot](https://t.me/za_uglom_
 This is the bot for ordering and payment some products with inline mode, product images, section of administration and database.
 * Language **'RU'**
 
-**Aiogram** is the main libriary to working wiht Telegram API in this project.
+**Aiogram** is the main libriary for working with Telegram API in this project.
 
 ## Install
 To get started with this BOT you should to edit constants `API_TOKEN` and `PAY_TOKEN` in the config file `config.py`.
