@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from order_db import OrderDB
 from main import menu
 from functions import get_json
-from config import TIME_ZONE, logger
+from config import logger
 
 
 @logger.catch
@@ -18,8 +18,10 @@ async def basket_menu_page(user_id) -> InlineKeyboardMarkup:
                 if item == price[0]:
                     p = order[item] * price[1]
                     total_price += p
-            ikb.row(InlineKeyboardButton(f'➖       {item}', callback_data=f'!dn_{item}'),
-                    InlineKeyboardButton(f'[{order[item]}шт.]          ➕', callback_data=f'!up_{item}'))
+            ikb.row(InlineKeyboardButton(f'➖       {item}',
+                                         callback_data=f'!dn_{item}'),
+                    InlineKeyboardButton(f'[{order[item]}шт.]          ➕',
+                                         callback_data=f'!up_{item}'))
     except TypeError:
         return menu
 
@@ -80,9 +82,17 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
             ikb.insert(InlineKeyboardButton('🌆'+product, callback_data=f'change_image_{product}'))
             ikb.insert(InlineKeyboardButton(f'{price}₽', callback_data='change_price_'+product))
 
-    ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_menu_page {page} {next_page_len} {del_product}'))
+    ikb.add(
+        InlineKeyboardButton('◀️',
+                             callback_data=f'prev_menu_page {page} {next_page_len} {del_product}')
+    )
+
     ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
-    ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_menu_page {page} {next_page_len} {del_product}'))
+
+    ikb.insert(
+        InlineKeyboardButton('▶️',
+                             callback_data=f'next_menu_page {page} {next_page_len} {del_product}')
+    )
 
     if del_product:
         ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_edit_menu'))
@@ -188,8 +198,10 @@ async def set_time_page(user_id: int, hour: int, minute: int) -> InlineKeyboardM
     ikb.insert(InlineKeyboardButton('▶️', callback_data='next_time_page'))
     order_user_time = await OrderDB.get_order_user_time(user_id)
     if order_user_time is not None:
-        ikb.add(InlineKeyboardButton(f'[{order_user_time}] Отменить', callback_data='cancel_set_time'))
-    ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_basket'))
+        ikb.add(InlineKeyboardButton(f'[{order_user_time}] Отменить',
+                                     callback_data='cancel_set_time'))
+    ikb.add(InlineKeyboardButton('Назад',
+                                 callback_data='back_to_basket'))
 
     return ikb
 

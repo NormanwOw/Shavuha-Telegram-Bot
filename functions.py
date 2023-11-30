@@ -128,6 +128,7 @@ async def error_to_db(message: types.Message, bot):
     await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)
 
 
+@logger.catch
 async def get_xlsx() -> str:
     wb = Workbook()
     ws = wb.active
@@ -159,6 +160,7 @@ async def get_xlsx() -> str:
     return now
 
 
+@logger.catch
 async def set_answer(count: int, selected_page: int, user_orders_count: int, user_orders: list) -> str:
     num = 1
     answer = ''

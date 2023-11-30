@@ -1,4 +1,5 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, \
+    KeyboardButton
 
 ikb = InlineKeyboardMarkup()
 ikb.add(InlineKeyboardButton('Оформить заказ', switch_inline_query_current_chat='#menu'))

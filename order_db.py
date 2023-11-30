@@ -2,6 +2,16 @@ import sqlite3
 import json
 import datetime
 
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
+from config import DATABASE_URL
+
+
+engine = create_async_engine(DATABASE_URL)
+async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+async_session = async_sessionmaker(engine)
+
 
 class OrderDB:
     __connection = sqlite3.connect('database.db')
@@ -12,8 +22,10 @@ class OrderDB:
     async def get_order_list(cls, user_id) -> dict or None:
         with cls.__connection:
             try:
-                order = cls.__cursor.execute("SELECT order_list FROM orders WHERE user_id = ?",
-                                             (user_id,)).fetchone()[0]
+                order = cls.__cursor.execute(
+                    "SELECT order_list FROM orders WHERE user_id = ?", (user_id,)
+                ).fetchone()[0]
+
                 return json.loads(order)
             except TypeError:
                 return None
@@ -22,7 +34,10 @@ class OrderDB:
     async def get_order_by_id(cls, user_id: int) -> list or None:
         with cls.__connection:
             try:
-                order = cls.__cursor.execute("SELECT * FROM orders WHERE user_id = ?", (user_id,)).fetchone()
+                order = cls.__cursor.execute(
+                    "SELECT * FROM orders WHERE user_id = ?", (user_id,)
+                ).fetchone()
+
                 return [x for x in order]
             except TypeError:
                 return None
@@ -31,8 +46,10 @@ class OrderDB:
     async def get_products_count(cls, user_id: int) -> int or None:
         with cls.__connection:
             try:
-                order = cls.__cursor.execute("SELECT order_list FROM orders WHERE user_id = ?",
-                                             (user_id,)).fetchone()[0]
+                order = cls.__cursor.execute(
+                    "SELECT order_list FROM orders WHERE user_id = ?", (user_id,)
+                ).fetchone()[0]
+
                 order = json.loads(order)
                 count = 0
                 for product in order:
@@ -46,9 +63,12 @@ class OrderDB:
         order_list = await cls.get_order_list(user_id)
         if order_list is None:
             new_order_list = json.dumps(new_order_list, ensure_ascii=False)
+
             with cls.__connection:
-                cls.__cursor.execute("INSERT INTO orders (user_id, order_list) VALUES (?, ?)",
-                                     (user_id, new_order_list))
+                cls.__cursor.execute(
+                    "INSERT INTO orders (user_id, order_list) VALUES (?, ?)",
+                    (user_id, new_order_list)
+                )
         else:
             for item in new_order_list:
                 if item in order_list:
@@ -62,61 +82,83 @@ class OrderDB:
                     order_list = order_list | new_order_list
 
                 order_list = json.dumps(order_list, ensure_ascii=False)
+
             with cls.__connection:
-                cls.__cursor.execute("UPDATE orders SET order_list = ? WHERE user_id = ?", (order_list, user_id))
+                cls.__cursor.execute(
+                    "UPDATE orders SET order_list = ? WHERE user_id = ?", (order_list, user_id)
+                )
 
         await OrderDB.update_price(user_id)
 
     @classmethod
     async def set_price(cls, user_id: int, price: int):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET price = ? WHERE user_id = ?", (price, user_id))
+            cls.__cursor.execute(
+                "UPDATE orders SET price = ? WHERE user_id = ?", (price, user_id)
+            )
 
     @classmethod
     async def get_price(cls, user_id: int) -> int:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT price FROM orders WHERE user_id = ?", (user_id,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT price FROM orders WHERE user_id = ?", (user_id,)
+            ).fetchone()[0]
 
     @classmethod
     async def set_order_time(cls, user_id: int, time: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET order_time = ? WHERE user_id = ?", (time, user_id))
+            cls.__cursor.execute(
+                "UPDATE orders SET order_time = ? WHERE user_id = ?", (time, user_id)
+            )
 
     @classmethod
     async def get_order_time(cls, user_id: int) -> str:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT order_time FROM orders WHERE user_id = ?", (user_id,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT order_time FROM orders WHERE user_id = ?", (user_id,)
+            ).fetchone()[0]
 
     @classmethod
     async def set_order_user_time(cls, user_id: int, time: str or None):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET order_user_time = ? WHERE user_id = ?", (time, user_id))
+            cls.__cursor.execute(
+                "UPDATE orders SET order_user_time = ? WHERE user_id = ?", (time, user_id)
+            )
 
     @classmethod
     async def get_order_user_time(cls, user_id: int) -> str:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT order_user_time FROM orders WHERE user_id = ?",
-                                        (user_id,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT order_user_time FROM orders WHERE user_id = ?", (user_id,)
+            ).fetchone()[0]
 
     @classmethod
     async def clear_basket(cls, user_id: int):
         with cls.__connection:
-            cls.__cursor.execute("DELETE FROM orders WHERE user_id = ?", (user_id,))
+            cls.__cursor.execute(
+                "DELETE FROM orders WHERE user_id = ?", (user_id,)
+            )
 
     @classmethod
     async def set_comment(cls, user_id: int, comment: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET comment = ? WHERE user_id = ?", (comment, user_id))
+            cls.__cursor.execute(
+                "UPDATE orders SET comment = ? WHERE user_id = ?", (comment, user_id)
+            )
 
     @classmethod
     async def get_comment(cls, user_id: int):
         with cls.__connection:
-            return cls.__cursor.execute("SELECT comment FROM orders WHERE user_id = ?", (user_id,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT comment FROM orders WHERE user_id = ?", (user_id,)
+            ).fetchone()[0]
 
     @classmethod
     async def delete_comment(cls, user_id: int):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE orders SET comment = NULL WHERE user_id = ?", (user_id,))
+            cls.__cursor.execute(
+                "UPDATE orders SET comment = NULL WHERE user_id = ?", (user_id,)
+            )
 
 # PRICES TABLE
 # ======================================================================================================================
@@ -124,21 +166,29 @@ class OrderDB:
     async def add_product(cls, product_list: list):
         try:
             product, price, desc, url = product_list
+
             with cls.__connection:
-                cls.__cursor.execute("INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
-                                     (product, price, desc, url,))
+                cls.__cursor.execute(
+                    "INSERT INTO prices (product, price, desc, url) VALUES (?, ?, ?, ?)",
+                    (product, price, desc, url,)
+                )
+
         except Exception:
             pass
 
     @classmethod
     async def get_prices(cls) -> list:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT product, price, desc, url FROM prices").fetchall()
+            return cls.__cursor.execute(
+                "SELECT product, price, desc, url FROM prices"
+            ).fetchall()
 
     @classmethod
     async def get_price_by_product_name(cls, product: str) -> int:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT price FROM prices WHERE product = ?", (product,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT price FROM prices WHERE product = ?", (product,)
+            ).fetchone()[0]
 
     @classmethod
     async def update_price(cls, user_id: int):
@@ -156,22 +206,30 @@ class OrderDB:
     @classmethod
     async def set_product_desc(cls, desc: str, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET desc = ? WHERE product = ?", (desc, product))
+            cls.__cursor.execute(
+                "UPDATE prices SET desc = ? WHERE product = ?", (desc, product)
+            )
 
     @classmethod
     async def set_product_image(cls, url: str, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET url = ? WHERE product = ?", (url, product))
+            cls.__cursor.execute(
+                "UPDATE prices SET url = ? WHERE product = ?", (url, product)
+            )
 
     @classmethod
     async def set_product_price(cls, price: int, product: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE prices SET price = ? WHERE product = ?", (price, product))
+            cls.__cursor.execute(
+                "UPDATE prices SET price = ? WHERE product = ?", (price, product)
+            )
 
     @classmethod
     async def delete_product(cls, product: str):
         with cls.__connection:
-            cls.__cursor.execute("DELETE FROM prices WHERE product = ?", (product,))
+            cls.__cursor.execute(
+                "DELETE FROM prices WHERE product = ?", (product,)
+            )
 
 # ARCHIVE TABLE
 # ======================================================================================================================
@@ -180,25 +238,34 @@ class OrderDB:
     async def insert_to_archive(cls, user_id: int, order_number: int, order_list: str,
                                 comment: str, price: int, time: str):
         with cls.__connection:
-            cls.__cursor.execute("INSERT INTO archive (order_number, user_id, order_list, comment, price, date, time) "
-                                 "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
-                                 (order_number, user_id, order_list, comment, price, time))
+            cls.__cursor.execute(
+                "INSERT INTO archive (order_number, user_id, order_list, "
+                "comment, price, date, time) "
+                "VALUES (?, ?, ?, ?, ?, strftime('%d.%m.%Y', date('now')), ?)",
+                (order_number, user_id, order_list, comment, price, time)
+            )
 
     @classmethod
     async def get_all_from_archive(cls):
         with cls.__connection:
-            return cls.__cursor.execute("SELECT * FROM archive").fetchall()
+            return cls.__cursor.execute(
+                "SELECT * FROM archive"
+            ).fetchall()
 
     @classmethod
     async def get_order_numbers(cls) -> list:
         with cls.__connection:
-            return [i[0] for i in cls.__cursor.execute("SELECT order_number FROM archive").fetchall()]
+            return [i[0] for i in cls.__cursor.execute(
+                "SELECT order_number FROM archive"
+            ).fetchall()]
 
     @classmethod
     async def get_avg_order_price(cls) -> int:
         with cls.__connection:
             try:
-                return int(cls.__cursor.execute("SELECT AVG(price) FROM archive").fetchone()[0])
+                return int(cls.__cursor.execute(
+                    "SELECT AVG(price) FROM archive"
+                ).fetchone()[0])
             except TypeError:
                 return 0
 
@@ -210,9 +277,13 @@ class OrderDB:
         date = date_class.strftime('%d.%m.%Y')
         date_2 = date_2_class.strftime('%d.%m.%Y')
         if days == 1:
+
             with cls.__connection:
-                days_list = cls.__cursor.execute("SELECT order_number, price, order_list, comment, date, time "
-                                                 "FROM archive WHERE date = ? OR date = ?", (date, date_2)).fetchall()
+                days_list = cls.__cursor.execute(
+                    "SELECT order_number, price, order_list, comment, date, time "
+                    "FROM archive WHERE date = ? OR date = ?", (date, date_2)
+                ).fetchall()
+
                 for day_time in days_list:
                     d = day_time[4]
                     t = day_time[5]
@@ -227,9 +298,12 @@ class OrderDB:
                 date = date[2:]
                 month_date2 = date_2[3:5]
                 date_2 = date_2[2:]
-                days_list = cls.__cursor.execute(f"SELECT order_number, price, order_list, comment, date, time "
-                                                 f"FROM archive WHERE date LIKE '__{date}' "
-                                                 f"OR date LIKE '__{date_2}'").fetchall()
+                days_list = cls.__cursor.execute(
+                    f"SELECT order_number, price, order_list, comment, date, time "
+                    f"FROM archive WHERE date LIKE '__{date}' "
+                    f"OR date LIKE '__{date_2}'"
+                ).fetchall()
+
                 days_list_copy = days_list.copy()
                 for day in days_list:
                     if int(day[4][0:2]) < int(day_date) and int(day[4][3:5]) == int(month_date2):
@@ -253,19 +327,26 @@ class OrderDB:
     @classmethod
     async def get_orders_count(cls):
         with cls.__connection:
-            return cls.__cursor.execute("SELECT COUNT(*) FROM archive").fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT COUNT(*) FROM archive"
+            ).fetchone()[0]
 
     @classmethod
     async def get_user_orders(cls, user_id):
         with cls.__connection:
-            return cls.__cursor.execute("SELECT order_number, price, order_list, "
-                                        "date, time FROM archive WHERE user_id = ?", (user_id,)).fetchall()
+            return cls.__cursor.execute(
+                "SELECT order_number, price, order_list, date, time FROM archive "
+                "WHERE user_id = ?", (user_id,)
+            ).fetchall()
 
     @classmethod
     async def get_all_user_id(cls) -> list or None:
         with cls.__connection:
             try:
-                users = cls.__cursor.execute("SELECT user_id FROM archive").fetchall()
+                users = cls.__cursor.execute(
+                    "SELECT user_id FROM archive"
+                ).fetchall()
+
                 result = set([user[0] for user in users])
                 return list(result)
             except TypeError:
@@ -277,23 +358,27 @@ class OrderDB:
     @classmethod
     async def add_employee(cls, user_id: int, full_name: str, status: str):
         with cls.__connection:
-            cls.__cursor.execute("INSERT INTO employees (user_id, full_name, status, date) "
-                                 "VALUES (?, ?, ?, strftime('%d.%m.%Y', date('now')))",
-                                 (user_id, full_name, status))
+            cls.__cursor.execute(
+                "INSERT INTO employees (user_id, full_name, status, date) "
+                "VALUES (?, ?, ?, strftime('%d.%m.%Y', date('now')))",
+                (user_id, full_name, status)
+            )
 
     @classmethod
     async def get_id_by_status(cls, status: str) -> list:
         with cls.__connection:
-            return [user_id[0] for user_id in cls.__cursor.execute("SELECT user_id FROM employees WHERE status = ?",
-                                                                   (status,)).fetchall()]
+            return [user_id[0] for user_id in cls.__cursor.execute(
+                "SELECT user_id FROM employees WHERE status = ?", (status,)
+            ).fetchall()]
 
     @classmethod
     async def get_id_name_by_status(cls, status: str) -> list:
         with cls.__connection:
-            employee_list = cls.__cursor.execute("SELECT user_id, full_name FROM employees "
-                                                 "WHERE status = ?", (status,)).fetchall()
-            result = []
+            employee_list = cls.__cursor.execute(
+                "SELECT user_id, full_name FROM employees WHERE status = ?", (status,)
+            ).fetchall()
 
+            result = []
             for employee in employee_list:
                 name = employee[1]
                 if ' ' in name:
@@ -305,7 +390,9 @@ class OrderDB:
     @classmethod
     async def delete_employee(cls, user_id: int):
         with cls.__connection:
-            cls.__cursor.execute("DELETE FROM employees WHERE user_id = ? AND status = 'Повар'", (user_id,))
+            cls.__cursor.execute(
+                "DELETE FROM employees WHERE user_id = ? AND status = 'Повар'", (user_id,)
+            )
 
 # TEMP TABLE
 # ======================================================================================================================
@@ -313,31 +400,43 @@ class OrderDB:
     @classmethod
     async def delete_temp(cls, user_id: int):
         with cls.__connection:
-            cls.__cursor.execute("DELETE FROM temp WHERE user_id = ?", (user_id,))
+            cls.__cursor.execute(
+                "DELETE FROM temp WHERE user_id = ?", (user_id,)
+            )
 
     @classmethod
     async def add_temp(cls, user_id: int, product: str, count=1):
         with cls.__connection:
-            cls.__cursor.execute("INSERT INTO temp (user_id, product, count) VALUES (?, ?, ?)",
-                                 (user_id, product, count,))
+            cls.__cursor.execute(
+                "INSERT INTO temp (user_id, product, count) VALUES (?, ?, ?)",
+                (user_id, product, count,)
+            )
 
     @classmethod
     async def temp_to_order(cls, user_id: int):
         with cls.__connection:
-            temp = cls.__cursor.execute("SELECT * FROM temp WHERE user_id = ?", (user_id,)).fetchone()
+            temp = cls.__cursor.execute(
+                "SELECT * FROM temp WHERE user_id = ?", (user_id,)
+            ).fetchone()
+
             order_list = {temp[1]: temp[2]}
             await cls.add_order(user_id, order_list)
 
     @classmethod
     async def set_count(cls, user_id: int, count=1):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE temp SET count = ? WHERE user_id = ?", (count, user_id))
+            cls.__cursor.execute(
+                "UPDATE temp SET count = ? WHERE user_id = ?", (count, user_id)
+            )
 
     @classmethod
     async def get_count(cls, user_id: int) -> int:
         with cls.__connection:
             try:
-                count = cls.__cursor.execute("SELECT count FROM temp WHERE user_id = ?", (user_id,)).fetchone()[0]
+                count = cls.__cursor.execute(
+                    "SELECT count FROM temp WHERE user_id = ?", (user_id,)
+                ).fetchone()[0]
+
                 return count
             except TypeError:
                 return 1
@@ -346,7 +445,10 @@ class OrderDB:
     async def is_temp_exists(cls, user_id: int) -> bool:
         with cls.__connection:
             try:
-                count = cls.__cursor.execute("SELECT count FROM temp WHERE user_id = ?", (user_id,)).fetchone()[0]
+                count = cls.__cursor.execute(
+                    "SELECT count FROM temp WHERE user_id = ?", (user_id,)
+                ).fetchone()[0]
+
                 return count
             except TypeError:
                 return False
@@ -356,20 +458,26 @@ class OrderDB:
     @classmethod
     async def set_url(cls, title: str, url: str):
         with cls.__connection:
-            cls.__cursor.execute("UPDATE urls SET url = ? WHERE title = ?", (url, title))
+            cls.__cursor.execute(
+                "UPDATE urls SET url = ? WHERE title = ?", (url, title)
+            )
 
     @classmethod
     async def get_url(cls, title: str) -> str:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT url FROM urls WHERE title = ?", (title,)).fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT url FROM urls WHERE title = ?", (title,)
+            ).fetchone()[0]
 
 # PRICES TABLE
 # ======================================================================================================================
     @classmethod
     async def insert_error(cls, username: int, error: str, date: str, time: str):
         with cls.__connection:
-            return cls.__cursor.execute("INSERT INTO errors (username, error, date, time) VALUES (?, ?, ?, ?)",
-                                        (username, error, date, time))
+            return cls.__cursor.execute(
+                "INSERT INTO errors (username, error, date, time) VALUES (?, ?, ?, ?)",
+                (username, error, date, time)
+            )
 
 # MAILS TABLE
 # ======================================================================================================================
@@ -383,26 +491,41 @@ class OrderDB:
     @classmethod
     async def get_mail(cls) -> tuple:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT id, mail FROM mails WHERE selected = 1").fetchone()
+            return cls.__cursor.execute(
+                "SELECT id, mail FROM mails WHERE selected = 1"
+            ).fetchone()
 
     @classmethod
     async def get_mails_count(cls) -> int:
         with cls.__connection:
-            return cls.__cursor.execute("SELECT COUNT(mail) FROM mails").fetchone()[0]
+            return cls.__cursor.execute(
+                "SELECT COUNT(mail) FROM mails"
+            ).fetchone()[0]
 
     @classmethod
     async def delete_mail(cls):
         with cls.__connection:
             mail = await cls.get_mail()
-            cls.__cursor.execute("DELETE FROM mails WHERE selected = 1")
+            cls.__cursor.execute(
+                "DELETE FROM mails WHERE selected = 1"
+            )
+
             mails_count = await cls.get_mails_count()
             selected_id = count = mail[0]
             for _ in range(mails_count + 1 - selected_id):
-                cls.__cursor.execute("UPDATE mails SET id = ? WHERE id = ?", (count, count + 1))
+                cls.__cursor.execute(
+                    "UPDATE mails SET id = ? WHERE id = ?", (count, count + 1)
+                )
                 count += 1
             try:
-                last_id = cls.__cursor.execute("SELECT id FROM mails ORDER BY ID DESC LIMIT 1").fetchone()[0]
-                cls.__cursor.execute("UPDATE mails SET selected = 1 WHERE id = ?", (last_id,))
+                last_id = cls.__cursor.execute(
+                    "SELECT id FROM mails ORDER BY ID DESC LIMIT 1"
+                ).fetchone()[0]
+
+                cls.__cursor.execute(
+                    "UPDATE mails SET selected = 1 WHERE id = ?", (last_id,)
+                )
+
             except TypeError:
                 return False
 
@@ -410,6 +533,11 @@ class OrderDB:
     async def move_selected_mail(cls, direct: bool):
         move = 1 if direct else -1
         with cls.__connection:
-            selected_id = cls.__cursor.execute("SELECT id FROM mails WHERE selected = 1").fetchone()[0]
+            selected_id = cls.__cursor.execute(
+                "SELECT id FROM mails WHERE selected = 1"
+            ).fetchone()[0]
+
             cls.__cursor.execute("UPDATE mails SET selected = 0")
-            cls.__cursor.execute("UPDATE mails SET selected = 1 WHERE id = ?", (selected_id + move,))
+            cls.__cursor.execute(
+                "UPDATE mails SET selected = 1 WHERE id = ?", (selected_id + move,)
+            )
