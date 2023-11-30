@@ -27,16 +27,11 @@ then
 * `personal` - authorization of a new employee. After this authorization all orders will be sent to emloyee by Telegram. *The password is in the administration panel, new for each employee*
   
 ____
-  
-![page_1](http://95.216.65.93:13617/static/images/github/shava-1@0,75x.png)
-
-![page_2](http://95.216.65.93:13617/static/images/github/shava-2@0,75x.png)
-
-![page_3](http://95.216.65.93:13617/static/images/github/shava-3@0,75x.png)
-
-![page_4](http://95.216.65.93:13617/static/images/github/shava-4@0,75x.png)
-
-![page_4](http://95.216.65.93:13617/static/images/github/shava-5@0,75x.png)
+![shava-1@0,75x](https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/df5b987e-879c-4155-b78d-97910855c5bf)
+![shava-2@0,75x](https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/5372081a-6a5b-46fd-9293-12f3ba6eee31)
+![shava-3@0,75x](https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/480a7480-03c8-4c04-88cd-be3ad71b79a3)
+![shava-4@0,75x](https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/97ef51ee-58e3-46b8-9688-31467c615bff)
+![shava-5@0,75x](https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/f1cf2914-b0e4-49fb-8428-a3348447417e)
 
 
 
