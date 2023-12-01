@@ -49,17 +49,41 @@ async def start_command(message: types.Message):
     or 'admin' in message.text.lower()
 )
 async def admin_login(message: types.Message):
+    """
+    Admin handler
+    Show admin panel or Login
+    """
     await commands.admin_login(message)
 
 
 @dp.message_handler(commands=['my_orders'])
 async def my_orders(message: types.Message):
+    """
+    User handler
+    Show order list
+    """
     await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
 
 
 @dp.message_handler(commands=['error'])
 async def get_error_msg(message: types.Message):
+    """
+    User handler
+    Get message from user with some problem
+    """
     await commands.get_error_msg(message)
+
+
+@dp.message_handler(state=ErrorHandler.get_error)
+async def get_error_handler(message: types.Message, state: FSMContext):
+    """
+    Error
+    State of getting error message from user
+    """
+    if len(message.text) > 5:
+        await error_to_db(message, bot)
+        await state.finish()
+    await message.delete()
 
 
 @dp.message_handler(
@@ -67,18 +91,26 @@ async def get_error_msg(message: types.Message):
     or 'personal' in message.text.lower()
 )
 async def employee_command(message: types.Message):
+    """
+    Employee handler
+    Show orders list or Login
+    """
     employees_list = await OrderDB.get_id_by_status('Повар')
 
     if message.from_user.id in employees_list:
         await get_24h_orders_list(message)
     else:
-        await Logging.employee_password.set()
+        await Login.employee_password.set()
         await message.answer('Введите пароль:', reply_markup=ikb_cancel)
     await message.delete()
 
 
-@dp.message_handler(state=Logging.admin_password)
+@dp.message_handler(state=Login.admin_password)
 async def check_admin_password_dialog(message: types.Message, state: FSMContext):
+    """
+    Login
+    State of getting admin password
+    """
     if message.text == '123':
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
         await message.answer('Успешная авторизация', reply_markup=rkb_admin)
@@ -87,8 +119,12 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
     await message.delete()
 
 
-@dp.message_handler(state=Logging.employee_password)
+@dp.message_handler(state=Login.employee_password)
 async def check_employee_password_dialog(message: types.Message, state: FSMContext):
+    """
+    Login
+    State of getting employee password
+    """
     if message.text.upper() == get_json('data.json')['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         await update_password()
@@ -99,16 +135,29 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
 
 @dp.message_handler(state=ChangeProduct.get_new_desc)
 async def change_product_desc(message: types.Message, state: FSMContext):
+    """
+    Change product
+    State of getting new description
+    """
     product = await ChangeProduct.get_product()
     await OrderDB.set_product_desc(message.text, product)
-    await bot.send_message(message.from_user.id, '✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
-                           reply_markup=await pages.edit_menu_page(False))
+
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text='✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
+        reply_markup=await pages.edit_menu_page(False)
+    )
+
     await state.finish()
     await message.delete()
 
 
 @dp.message_handler(state=ChangeProduct.get_new_product_image)
 async def change_product_image(message: types.Message, state: FSMContext):
+    """
+    Change product
+    State of getting new image
+    """
     product = await ChangeProduct.get_product()
     try:
         await bot.send_photo(
@@ -121,29 +170,44 @@ async def change_product_image(message: types.Message, state: FSMContext):
         await OrderDB.set_product_image(message.text, product)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
+
         await bot.send_message(
-            message.from_user.id,
-            'Неверная ссылка, изображение не найдено',
+            chat_id=message.from_user.id,
+            text='Неверная ссылка, изображение не найдено',
             reply_markup=ikb_cancel
         )
+
     await message.delete()
 
 
 @dp.message_handler(state=ChangeProduct.get_new_price)
 async def change_product_price(message: types.Message, state: FSMContext):
+    """
+    Change product
+    State of getting new price
+    """
     if len(message.text) < 6:
         for ch in message.text:
             if ch not in string.digits:
                 return
         await OrderDB.set_product_price(int(message.text), await ChangeProduct.get_product())
-        await bot.send_message(message.from_user.id, '✅ Цена изменена\n\n' + EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page(False))
+
+        await bot.send_message(
+            chat_id=message.from_user.id,
+            text='✅ Цена изменена\n\n' + EDIT_MENU_TITLE,
+            reply_markup=await pages.edit_menu_page(False)
+        )
+
         await state.finish()
     await message.delete()
 
 
 @dp.message_handler(state=AddProduct.get_name)
 async def add_product_name(message: types.Message):
+    """
+    Add new product
+    State of getting product name
+    """
     if len(message.text) > 1:
         await bot.send_message(
             message.from_user.id,
@@ -158,6 +222,10 @@ async def add_product_name(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_price)
 async def add_product_price(message: types.Message):
+    """
+    Add new product
+    State of getting product price
+    """
     try:
         if int(message.text) >= 0:
             await bot.send_message(
@@ -175,6 +243,10 @@ async def add_product_price(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_desc)
 async def add_product_desc(message: types.Message):
+    """
+    Add new product
+    State of getting product description
+    """
     ProductList.append_product_list(message.text)
 
     await bot.send_message(
@@ -189,6 +261,10 @@ async def add_product_desc(message: types.Message):
 
 @dp.message_handler(state=AddProduct.get_image)
 async def add_product_image(message: types.Message, state: FSMContext):
+    """
+    Add new product
+    State of getting product image
+    """
     try:
         await bot.send_photo(message.from_user.id, message.text)
 
@@ -215,6 +291,10 @@ async def add_product_image(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=ChangeMainImage.get_main_image)
 async def change_main_image(message: types.Message, state: FSMContext):
+    """
+    Change main image
+    State of getting main image
+    """
     try:
         await bot.send_photo(
             message.from_user.id,
@@ -238,27 +318,27 @@ async def change_main_image(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=OrderComment.get_comment)
 async def set_comment(message: types.Message, state: FSMContext):
+    """
+    Order comment
+    State of getting comment for order
+    """
     await OrderDB.set_comment(message.from_user.id, message.text)
     await state.finish()
     await message.delete()
 
     await bot.send_message(
-        message.from_user.id,
-        await basket_title(message.from_user.id),
+        chat_id=message.from_user.id,
+        text=await basket_title(message.from_user.id),
         reply_markup=await pages.basket_menu_page(message.from_user.id)
     )
 
 
-@dp.message_handler(state=ErrorHandler.get_error)
-async def get_error_handler(message: types.Message, state: FSMContext):
-    if len(message.text) > 5:
-        await error_to_db(message, bot)
-        await state.finish()
-    await message.delete()
-
-
 @dp.message_handler(state=Mail.new_mail)
 async def get_mail_msg(message: types.Message, state: FSMContext):
+    """
+    Mail
+    State of getting new mail
+    """
     if len(message.text) > 5:
         await OrderDB.insert_mail(message.text)
         mail_id, mail_text = await OrderDB.get_mail()
@@ -269,6 +349,8 @@ async def get_mail_msg(message: types.Message, state: FSMContext):
 
 @dp.message_handler()
 async def message_filter(message: types.Message):
+    """Handler of product name and other messages"""
+
     products = await OrderDB.get_prices()
     for product in products:
         if message.text == product[0]:
@@ -318,13 +400,14 @@ async def inline_h(query: types.InlineQuery):
 
 
 @dp.callback_query_handler(
-    state=[Logging.admin_password, Logging.employee_password, ChangeProduct.get_new_desc,
+    state=[Login.admin_password, Login.employee_password, ChangeProduct.get_new_desc,
            ChangeProduct.get_new_product_image, ChangeProduct.get_new_price,
            AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
            ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error,
            Mail.new_mail]
 )
 async def cancel_callback(callback: types.CallbackQuery, state: FSMContext):
+    """Add Cancel button for message"""
     await callbacks.cancel_callback(callback, bot, state, ProductList)
 
 
@@ -334,7 +417,7 @@ async def callback_handler(callback: types.CallbackQuery):
 
 
 # PAYMENT
-# ======================================================================================================================
+# =================================================================================================
 
 
 @dp.pre_checkout_query_handler()
@@ -344,6 +427,8 @@ async def checkout_process(pre_checkout_query: PreCheckoutQuery):
 
 @dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
 async def successful_payment(message: types.Message):
+    """Sending messages with order information to user and employee"""
+
     order_number = await generate_order_number()
     price = int(int(message.successful_payment.total_amount) / 100)
     date = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
@@ -352,12 +437,19 @@ async def successful_payment(message: types.Message):
     cur = message.successful_payment.currency
     payload = message.successful_payment.invoice_payload
     order_list = payload
+
     for ch in ['{', '}', '\'', '"']:
         order_list = order_list.replace(ch, '')
+
     comment = await OrderDB.get_comment(message.from_user.id)
     order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
     msg = SUCCESSFUL_MESSAGE.format(order_number=order_number, cur=cur, amount=str(price))
-    await bot.send_message(message.from_user.id, msg)
+
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=msg
+    )
+
     await OrderDB.clear_basket(message.from_user.id)
 
     if order_user_time is not None:
@@ -367,8 +459,9 @@ async def successful_payment(message: types.Message):
         result_time = time
         user_time_str = ''
 
-    await OrderDB.insert_to_archive(message.from_user.id, order_number, order_list, comment, price,
-                                    result_time)
+    await OrderDB.insert_to_archive(
+        message.from_user.id, order_number, order_list, comment, price, result_time
+    )
 
     print(
         {'user_id': message.from_user.id,

@@ -54,7 +54,7 @@ async def generate_id() -> str:
     hash_data = ''
     for i in range(10):
         hash_data += string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)]
-    await sleep(0.1)
+    await sleep(0.01)
 
     return hashlib.md5(hash_data.encode()).hexdigest()
 
@@ -76,7 +76,7 @@ async def get_time():
     time = now.strftime('%H:%M')
     hour = now.hour
     minute = now.minute
-    await sleep(0.1)
+    await sleep(0.01)
 
     return time, hour, minute
 
@@ -99,8 +99,8 @@ async def get_24h_orders_list(message):
 
 
 @logger.catch
-async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
-                                  price: int, date: str, time: str):
+async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int,
+                                  user_time_str: str, price: int, date: str, time: str):
     if comment is None:
         comm = ''
     else:
@@ -111,11 +111,14 @@ async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order
     for employee in await OrderDB.get_id_by_status('Повар'):
         for product in order:
             order_str += f'\n ▫️ {product}: {order[product]}'
-        await bot.send_message(employee,
-                               f'<b>Заказ №<u>{order_number}</u></b>'+user_time_str+order_str+f'\n'
-                               f'__________\n'
-                               f'{price}₽'+comm+f'\n\n'
-                               f'{date} {time}')
+
+        await bot.send_message(
+            chat_id=employee,
+            text=f'<b>Заказ №<u>{order_number}</u></b>'+user_time_str+order_str+f'\n'
+                 f'__________\n'
+                 f'{price}₽'+comm+f'\n\n'
+                 f'{date} {time}'
+        )
 
 
 @logger.catch
@@ -124,8 +127,16 @@ async def error_to_db(message: types.Message, bot):
     date = now.strftime('%d.%m.%Y')
     time = await get_time()
     await OrderDB.insert_error(message.from_user.full_name, message.text, date, time[0])
-    await bot.send_message(message.from_user.id, ERROR_F)
-    await bot.send_message(5765637028, message.from_user.full_name + '\n' + message.text)
+
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=ERROR_F
+    )
+
+    await bot.send_message(
+        chat_id=5765637028,
+        text=message.from_user.full_name + '\n' + message.text
+    )
 
 
 @logger.catch
@@ -161,7 +172,8 @@ async def get_xlsx() -> str:
 
 
 @logger.catch
-async def set_answer(count: int, selected_page: int, user_orders_count: int, user_orders: list) -> str:
+async def user_orders_page(count: int, selected_page: int, user_orders_count: int,
+                           user_orders: list) -> str:
     num = 1
     answer = ''
     rows = 5
@@ -182,4 +194,5 @@ async def set_answer(count: int, selected_page: int, user_orders_count: int, use
             num += 1
 
     await sleep(0.1)
+
     return answer

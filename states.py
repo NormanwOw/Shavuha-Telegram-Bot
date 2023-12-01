@@ -1,7 +1,7 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
 
-class Logging(StatesGroup):
+class Login(StatesGroup):
     admin_password = State()
     employee_password = State()
 

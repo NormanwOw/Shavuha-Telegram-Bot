@@ -2,8 +2,9 @@ import os
 
 from aiogram.types import LabeledPrice
 import aiogram.utils.exceptions
+from aiogram.dispatcher import FSMContext
 
-from config import PAY_TOKEN, TIME_ZONE, logger
+from config import PAY_TOKEN
 from messages import *
 from functions import *
 from markups import *
@@ -14,13 +15,19 @@ import pages
 @logger.catch
 async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
     # BASKET PAGE CALLBACKS
-    # ==================================================================================================================
+    # =============================================================================================
     try:
         if 'set_time' in callback.data:
             if callback.data == 'set_time':
                 time, hour, minute = await get_time()
-                await bot.edit_message_text(SET_TIME_MESSAGE, user_id, msg_id,
-                                            reply_markup=await pages.set_time_page(user_id, hour, minute))
+
+                await bot.edit_message_text(
+                    text=SET_TIME_MESSAGE,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.set_time_page(user_id, hour, minute)
+                )
+
                 await OrderDB.set_order_time(user_id, time)
             elif callback.data == 'cancel_set_time':
                 if await OrderDB.get_order_user_time(user_id) is None:
@@ -28,25 +35,46 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     return
 
                 await OrderDB.set_order_user_time(user_id, None)
-                await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                            reply_markup=await pages.basket_menu_page(user_id))
+
+                await bot.edit_message_text(
+                    text=await basket_title(user_id),
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.basket_menu_page(user_id)
+                )
 
                 await callback.answer('Точное время отменено')
             else:
                 time = callback.data[9:]
                 await callback.answer(time)
                 await OrderDB.set_order_user_time(user_id, time)
-                await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                            reply_markup=await pages.basket_menu_page(user_id))
+
+                await bot.edit_message_text(
+                    text=await basket_title(user_id),
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.basket_menu_page(user_id)
+                )
 
         if callback.data == 'order_comment':
             if await OrderDB.get_comment(user_id) is None:
-                await bot.send_message(user_id, 'Комментарий к заказу:', reply_markup=ikb_cancel)
+
+                await bot.send_message(
+                    chat_id=user_id,
+                    text='Комментарий к заказу:',
+                    reply_markup=ikb_cancel
+                )
+
                 await OrderComment.get_comment.set()
             else:
-                await bot.edit_message_text(await order_comment_title(user_id), user_id, msg_id,
-                                            reply_markup=await pages.comment_page())
+                await bot.edit_message_text(
+                    text=await order_comment_title(user_id),
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.comment_page()
+                )
 
+        # CREATE PAY INVOICE
         if callback.data == 'pay':
             data = await OrderDB.get_order_by_id(user_id)
             try:
@@ -70,16 +98,19 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
                 desc += f' ▫️ {item}'
 
-            await bot.send_invoice(user_id,
-                                   title='Заказ',
-                                   description=desc,
-                                   provider_token=PAY_TOKEN,
-                                   currency='rub',
-                                   start_parameter='example',
-                                   payload=order_list,
-                                   prices=order_prices,
-                                   need_shipping_address=False)
+            await bot.send_invoice(
+                chat_id=user_id,
+                title='Заказ',
+                description=desc,
+                provider_token=PAY_TOKEN,
+                currency='rub',
+                start_parameter='example',
+                payload=order_list,
+                prices=order_prices,
+                need_shipping_address=False
+            )
 
+        # PRODUCT COUNTER AT THE BASKET PAGE
         if '!up' in callback.data or '!dn' in callback.data:
             product = callback.data[4:]
             if '!up' in callback.data:
@@ -90,33 +121,55 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
             if await OrderDB.get_products_count(user_id) == 0:
                 await OrderDB.clear_basket(user_id)
-                await bot.edit_message_text(EMPTY_BASKET, user_id, msg_id,
-                                            reply_markup=await pages.basket_menu_page(user_id))
+
+                await bot.edit_message_text(
+                    text=EMPTY_BASKET,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.basket_menu_page(user_id)
+                )
+
                 return
 
-            await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.basket_menu_page(user_id))
+            await bot.edit_message_reply_markup(
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.basket_menu_page(user_id)
+            )
 
+        # SHOW ORDER TIME PAGE
         if 'time_page' in callback.data:
             _, hour, minute = await get_time()
             if 'next' in callback.data:
                 hour += 6
             try:
-                await bot.edit_message_reply_markup(user_id, msg_id,
-                                                    reply_markup=await pages.set_time_page(user_id, hour, minute))
+                await bot.edit_message_reply_markup(
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.set_time_page(user_id, hour, minute)
+                )
+
             except aiogram.utils.exceptions.MessageNotModified:
                 await callback.answer()
                 return
 
+        # SHOW BASKET PAGE
         if 'back_to_basket' in callback.data:
             if 'del' in callback.data:
                 await OrderDB.delete_comment(user_id)
                 await callback.answer('Комментарий удалён')
-            await bot.edit_message_text(await basket_title(user_id), user_id, msg_id,
-                                        reply_markup=await pages.basket_menu_page(user_id))
 
-# ORDER PAGE CALLBACKS
-# ======================================================================================================================
+            await bot.edit_message_text(
+                text=await basket_title(user_id),
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.basket_menu_page(user_id)
+            )
 
+        # ORDER PAGE CALLBACKS
+        # =========================================================================================
+
+        # PRODUCT COUNTER AT THE ORDER PAGE
         if '+' in callback.data or '-' in callback.data:
             count = await OrderDB.get_count(user_id)
             product = callback.data[1:]
@@ -134,8 +187,11 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                         return
                     await OrderDB.set_count(user_id, count - 1)
 
-            await bot.edit_message_reply_markup(user_id, msg_id,
-                                                reply_markup=await pages.product_page(user_id, product))
+            await bot.edit_message_reply_markup(
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.product_page(user_id, product)
+            )
 
         if 'basket_add' in callback.data:
             product = callback.data[11:]
@@ -143,28 +199,44 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await OrderDB.temp_to_order(user_id)
             await OrderDB.set_order_time(user_id, time[0])
             await callback.answer('Товар добавлен в корзину')
-            await bot.edit_message_reply_markup(user_id, msg_id,
-                                                reply_markup=await pages.product_page(user_id, product))
+
+            await bot.edit_message_reply_markup(
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.product_page(user_id, product)
+            )
 
         if callback.data == 'basket':
             if await OrderDB.get_order_by_id(user_id) is None:
                 await callback.answer('Корзина пуста')
             else:
-                await bot.send_message(user_id, await basket_title(user_id),
-                                       reply_markup=await pages.basket_menu_page(user_id))
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=await basket_title(user_id),
+                    reply_markup=await pages.basket_menu_page(user_id)
+                )
 
-# ADMIN PAGE CALLBACKS
-# ======================================================================================================================
+        # ADMIN PAGE CALLBACKS
+        # ======================================================================================================================
 
         if callback.data == 'admin_employees':
             password = get_json('data.json')
-            await bot.edit_message_text(EMPLOYEE_TITLE +
-                                        f'\nПароль для персонала: <b>{password["employee_password"]}</b>',
-                                        user_id, msg_id, reply_markup=await pages.employees_page())
+
+            await bot.edit_message_text(
+                text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
+                                      f'<b>{password["employee_password"]}</b>',
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.employees_page()
+            )
 
         if callback.data == 'admin_menu':
-            await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
-                                        reply_markup=await pages.edit_menu_page(False))
+            await bot.edit_message_text(
+                text=EDIT_MENU_TITLE,
+                chat_id = user_id,
+                message_id = msg_id,
+                reply_markup=await pages.edit_menu_page(False)
+            )
 
         if callback.data == 'admin_xlsx':
             doc = await get_xlsx()
@@ -174,11 +246,19 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     os.remove(file)
 
         if callback.data == 'admin_error':
-            await callback.message.answer(ERROR_TITLE, reply_markup=ikb_cancel)
+            await callback.message.answer(
+                text=ERROR_TITLE,
+                reply_markup=ikb_cancel
+            )
             await ErrorHandler.get_error.set()
 
         if callback.data == 'admin_settings':
-            await bot.edit_message_text(SETTINGS_TITLE, user_id, msg_id, reply_markup=await pages.settings_page())
+            await bot.edit_message_text(
+                text=SETTINGS_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.settings_page()
+            )
 
         if 'state_bot' in callback.data:
             if 'off' in callback.data:
@@ -187,21 +267,41 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             else:
                 await set_json('data.json', {'is_bot_enabled': 1})
                 await callback.answer('Приём заказов запущен', show_alert=True)
-            await bot.edit_message_reply_markup(user_id, msg_id, reply_markup=await pages.settings_page())
+
+            await bot.edit_message_reply_markup(
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.settings_page()
+            )
 
         if callback.data == 'admin_stats':
-            await bot.edit_message_text(await admin_stats(), user_id, msg_id, reply_markup=ikb_admin)
+            await bot.edit_message_text(
+                text=await admin_stats(),
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=ikb_admin
+            )
 
         if callback.data == 'change_main_image':
-            await bot.edit_message_text('Отправьте изображение:', user_id, msg_id, reply_markup=ikb_cancel)
+            await bot.edit_message_text(
+                text='Отправьте изображение:',
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=ikb_cancel
+            )
             await ChangeMainImage.get_main_image.set()
             await callback.answer('Редактирование изображения')
 
-# MAILS CALLBACKS
-# ======================================================================================================================
+        # MAILS CALLBACKS
+        # ======================================================================================================================
 
         if callback.data == 'admin_mails':
-            await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
+            await bot.edit_message_text(
+                text=MAILS_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.mails_page()
+            )
 
         if 'my_mails' in callback.data:
             data = callback.data.split()
@@ -220,18 +320,31 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 page += 1
             try:
                 mail_id, mail_text = await OrderDB.get_mail()
-                page = mail_id
-                await bot.edit_message_text(mail_text, user_id, msg_id, reply_markup=await pages.my_mails(page))
+
+                await bot.edit_message_text(
+                    text=mail_text,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.my_mails(mail_id)
+                )
             except TypeError:
                 await callback.answer('Список рассылок пуст')
 
         if callback.data == 'create_mail':
             await Mail.new_mail.set()
-            await bot.send_message(user_id, 'Введите текст рассылки', reply_markup=ikb_cancel)
+            await bot.send_message(
+                chat_id=user_id,
+                text='Введите текст рассылки',
+                reply_markup=ikb_cancel
+            )
 
         if callback.data == 'mails_help':
-            await bot.edit_message_text(MAILS_TITLE + MAILS_HELP, user_id, msg_id,
-                                        reply_markup=await pages.mails_page())
+            await bot.edit_message_text(
+                text=MAILS_TITLE + MAILS_HELP,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.mails_page()
+            )
 
         if 'delete_mail' in callback.data:
             if 'yes' in callback.data:
@@ -239,15 +352,29 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 await callback.answer('Рассылка удалена', show_alert=True)
                 if state:
                     mail_id, mail_text = await OrderDB.get_mail()
-                    await bot.edit_message_text(mail_text, user_id, msg_id,
-                                                reply_markup=await pages.my_mails(mail_id))
+
+                    await bot.edit_message_text(
+                        text=mail_text,
+                        chat_id=user_id,
+                        message_id=msg_id,
+                        reply_markup=await pages.my_mails(mail_id)
+                    )
                 else:
-                    await bot.edit_message_text(MAILS_TITLE, user_id, msg_id, reply_markup=await pages.mails_page())
+                    await bot.edit_message_text(
+                        text=MAILS_TITLE,
+                        chat_id=user_id,
+                        message_id=msg_id,
+                        reply_markup=await pages.mails_page()
+                    )
             elif 'no' in callback.data:
                 await callback.answer('Удаление отменено', show_alert=True)
                 await bot.delete_message(user_id, msg_id)
             else:
-                await bot.send_message(user_id, 'Удалить рассылку?', reply_markup=ikb_del_mail)
+                await bot.send_message(
+                    chat_id=user_id,
+                    text='Удалить рассылку?',
+                    reply_markup=ikb_del_mail
+                )
 
         if 'send_mail' in callback.data:
             if 'yes' in callback.data:
@@ -255,79 +382,148 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 _, mail_text = await OrderDB.get_mail()
                 if users:
                     for user in users:
-                        await bot.send_message(user, mail_text)
+
+                        await bot.send_message(
+                            chat_id=user,
+                            text=mail_text
+                        )
+
                     word = 'клиенту' if str(len(users))[-1] == '1' else 'клиентам'
-                    await callback.answer(f'Рассылка успешно отправлена {len(users)} {word}', show_alert=True)
+
+                    await callback.answer(
+                        f'Рассылка успешно отправлена {len(users)} {word}',
+                        show_alert=True
+                    )
+
                     await bot.delete_message(user_id, msg_id)
                 else:
                     await callback.answer('Список клиентов пуст', show_alert=True)
                     await bot.delete_message(user_id, msg_id)
+
             elif 'no' in callback.data:
                 await callback.answer('Отправление отменено', show_alert=True)
                 await bot.delete_message(user_id, msg_id)
             else:
                 mail_text = await OrderDB.get_mail()
-                await bot.send_message(user_id, SEND_MAIL + mail_text[1],
-                                       reply_markup=ikb_send_mail)
+
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=SEND_MAIL + mail_text[1],
+                    reply_markup=ikb_send_mail
+                )
 
         if callback.data == 'back':
-            await bot.edit_message_text(ADMIN_TITLE, user_id, msg_id, reply_markup=ikb_admin)
+            await bot.edit_message_text(
+                text=ADMIN_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=ikb_admin
+            )
 
-# EDIT EMPLOYEES CALLBACKS
-# ======================================================================================================================
+        # EDIT EMPLOYEES CALLBACKS
+        # ======================================================================================================================
 
         if callback.data == 'change_password':
             pw = await update_password()
-            await bot.edit_message_text(EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
-                                        user_id, msg_id, reply_markup=await pages.employees_page())
+
+            await bot.edit_message_text(
+                text=EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.employees_page()
+            )
 
         if 'remove_employee' in callback.data:
             employee_id = int(callback.data[16:])
             await OrderDB.delete_employee(employee_id)
-            await bot.edit_message_text(EMPLOYEE_TITLE, user_id, msg_id, reply_markup=await pages.employees_page())
+
+            await bot.edit_message_text(
+                text=EMPLOYEE_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.employees_page()
+            )
 
         if callback.data == 'employee_help':
             password = get_json('data.json')
-            await bot.edit_message_text(EMPLOYEE_TITLE +
-                                        f'\nПароль для персонала: <b>{password["employee_password"]}</b>\n\n' +
-                                        EMPLOYEE_HELP, user_id, msg_id, reply_markup=await pages.employees_page())
 
-# EDIT MENU CALLBACKS
-# ======================================================================================================================
+            await bot.edit_message_text(
+                text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
+                                      f'<b>{password["employee_password"]}</b>\n'
+                                      f'\n' + EMPLOYEE_HELP,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.employees_page()
+            )
+
+        # EDIT MENU CALLBACKS
+        # =========================================================================================
 
         if 'change_desc' in callback.data:
             product = callback.data[12:]
             await ChangeProduct.set_product(product)
             await ChangeProduct.get_new_desc.set()
-            await bot.send_message(user_id, 'Введите описание товара (состав):', reply_markup=ikb_cancel)
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Введите описание товара (состав):',
+                reply_markup=ikb_cancel
+            )
+
             await callback.answer('Редактирование описания')
 
         if 'change_image' in callback.data:
             product = callback.data[13:]
             await ChangeProduct.set_product(product)
             await ChangeProduct.get_new_product_image.set()
-            await bot.send_message(user_id, 'Отправьте ссылку на изображение:', reply_markup=ikb_cancel)
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Отправьте ссылку на изображение:',
+                reply_markup=ikb_cancel
+            )
+
             await callback.answer('Редактирование изображения')
 
         if 'change_price' in callback.data:
             product = callback.data[13:]
             await ChangeProduct.set_product(product)
             await ChangeProduct.get_new_price.set()
-            await bot.send_message(user_id, 'Введите стоимость товара:', reply_markup=ikb_cancel)
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Введите стоимость товара:',
+                reply_markup=ikb_cancel
+            )
+
             await callback.answer('Редактирование цены')
 
         if callback.data == 'menu_add':
-            await bot.send_message(user_id, 'Введите название товара:', reply_markup=ikb_cancel)
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Введите название товара:',
+                reply_markup=ikb_cancel
+            )
+
             await AddProduct.get_name.set()
             await callback.answer('Добавление товара')
 
         if callback.data == 'menu_delete':
-            await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
-                                        reply_markup=await pages.edit_menu_page(True))
+            await bot.edit_message_text(
+                text=EDIT_MENU_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.edit_menu_page(True)
+            )
 
         if callback.data == 'menu_help':
-            await bot.edit_message_text(EDIT_MENU_TITLE + '\n' + MENU_HELP, user_id, msg_id,
-                                        reply_markup=await pages.edit_menu_page(False))
+            await bot.edit_message_text(
+                text=EDIT_MENU_TITLE + '\n' + MENU_HELP,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.edit_menu_page(False)
+            )
 
         if 'menu_page' in callback.data:
             del_product = True if 'True' in callback.data else False
@@ -336,24 +532,44 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             next_page_len = int(data[2])
 
             if 'next' in callback.data and next_page_len > 0:
-                await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
-                                            reply_markup=await pages.edit_menu_page(del_product, page + 1))
+                await bot.edit_message_text(
+                    text=EDIT_MENU_TITLE,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.edit_menu_page(del_product, page + 1)
+                )
+
             elif 'prev' in callback.data and page != 1:
-                await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
-                                            reply_markup=await pages.edit_menu_page(del_product, page - 1))
+                await bot.edit_message_text(
+                    text=EDIT_MENU_TITLE,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await pages.edit_menu_page(del_product, page - 1)
+                )
 
         if 'remove_product' in callback.data:
             product = callback.data[15:]
-            await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id, reply_markup=await pages.edit_menu_page(True))
+
+            await bot.edit_message_text(
+                text=EDIT_MENU_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.edit_menu_page(True)
+            )
+
             await callback.answer(f'Товар удалён', show_alert=True)
             await OrderDB.delete_product(product)
 
         if callback.data == 'back_to_edit_menu':
-            await bot.edit_message_text(EDIT_MENU_TITLE, user_id, msg_id,
-                                        reply_markup=await pages.edit_menu_page(False))
+            await bot.edit_message_text(
+                text=EDIT_MENU_TITLE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await pages.edit_menu_page(False)
+            )
 
-# MY ORDERS CALLBACKS
-# ======================================================================================================================
+        # MY ORDERS CALLBACKS
+        # =========================================================================================
 
         if 'my_orders' in callback.data:
             data = callback.data.split()
@@ -371,22 +587,28 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
     await callback.answer()
 
 
-async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state, product):
+async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMContext, product):
     if callback.data == 'cancel':
         await callback.answer('Ввод отменён', show_alert=True)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
+
     if callback.data == 'without_image':
         product_list = product.get_product_list()
         if len(product_list) == 3:
             product_list.append(None)
         await OrderDB.add_product(product_list)
-        await bot.send_message(callback.from_user.id, '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-                               reply_markup=await pages.edit_menu_page(False))
+
+        await bot.send_message(
+            chat_id=callback.from_user.id,
+            text='✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
+            reply_markup=await pages.edit_menu_page(False)
+        )
+
     await state.finish()
     await callback.answer()
 
 
-async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
+async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0):
     user_orders = await OrderDB.get_user_orders(message.from_user.id)
     user_orders_count = len(user_orders)
 
@@ -401,31 +623,42 @@ async def my_orders(message, bot: Bot, user_id, msg_id, selected_page=0):
 
             if selected_page == 0:
                 await message.answer(
-                    await set_answer(last_page, selected_page, user_orders_count, user_orders),
+                    text=await user_orders_page(
+                        last_page, selected_page, user_orders_count, user_orders
+                    ),
                     reply_markup=await pages.my_orders_navigation(total_pages, total_pages)
                 )
             else:
                 await bot.edit_message_text(
-                    await set_answer(last_page, selected_page, user_orders_count, user_orders),
-                    user_id,
-                    msg_id,
+                    text=await user_orders_page(
+                        last_page, selected_page, user_orders_count, user_orders
+                    ),
+                    chat_id=user_id,
+                    message_id=msg_id,
                     reply_markup=await pages.my_orders_navigation(selected_page, total_pages)
                 )
         else:
             if selected_page == 0:
-                await message.answer(
-                    await set_answer(user_orders_count, selected_page, user_orders_count, user_orders)
+                await message.answer(await user_orders_page(
+                        user_orders_count, selected_page, user_orders_count, user_orders
+                    )
                 )
             else:
                 await bot.send_message(
-                    user_id,
-                    await set_answer(user_orders_count, selected_page, user_orders_count, user_orders)
+                    chat_id=user_id,
+                    text=await user_orders_page(
+                        user_orders_count, selected_page, user_orders_count,user_orders
+                    )
                 )
     else:
         if selected_page == 0:
             await message.answer('Список заказов пуст')
         else:
-            await bot.send_message(user_id, 'Список заказов пуст')
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Список заказов пуст'
+            )
 
     if selected_page == 0:
         await bot.delete_message(user_id, msg_id)
