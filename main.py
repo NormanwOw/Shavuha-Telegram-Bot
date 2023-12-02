@@ -469,7 +469,7 @@ async def successful_payment(message: types.Message):
         {'user_id': message.from_user.id,
          'order_number': order_number,
          'order_list': order_list,
-         'price': price + cur,
+         'price': str(price) + cur,
          'order_user_time': order_user_time,
          'comment': comment,
          'date': date,

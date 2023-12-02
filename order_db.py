@@ -300,14 +300,16 @@ class OrderDB:
     @classmethod
     async def insert_to_archive(cls, user_id: int, order_number: int, order_list: str,
                                 comment: str, price: int, time: str):
+        date = datetime.datetime.now().strftime('%d.%m.%Y')
+
         async with cls.__async_engine.connect() as connect:
             stmt = text(
                 "INSERT INTO archive (order_number, user_id, order_list, "
                 "comment, price, date, time) "
                 "VALUES (:order_number, :user_id, :order_list, :comment, :price, "
-                "strftime('%d.%m.%Y', date('now')), :time)"
+                ":date, :time)"
             ).bindparams(order_number=order_number, user_id=user_id, order_list=order_list,
-                         comment=comment, price=price, time=time)
+                         comment=comment, price=price, date=date, time=time)
 
             await connect.execute(stmt)
             await connect.commit()
@@ -452,10 +454,12 @@ class OrderDB:
     @classmethod
     async def add_employee(cls, user_id: int, full_name: str, status: str):
         async with cls.__async_engine.connect() as connect:
+            date = datetime.datetime.now().strftime('%d.%m.%Y')
+
             stmt = text(
                 "INSERT INTO employees (user_id, full_name, status, date) "
-                "VALUES (:user_id, :full_name, :status, strftime('%d.%m.%Y', date('now')))"
-            ).bindparams(user_id=user_id, full_name=full_name, status=status)
+                "VALUES (:user_id, :full_name, :status, :date)"
+            ).bindparams(user_id=user_id, full_name=full_name, status=status, date=date)
 
             await connect.execute(stmt)
             await connect.commit()
