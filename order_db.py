@@ -74,6 +74,7 @@ class OrderDB:
                 ).bindparams(user_id=user_id, order_list=new_order_list_js)
 
                 await connect.execute(stmt)
+                await connect.commit()
             else:
                 for item in new_order_list:
                     if item in order_list:
@@ -532,7 +533,7 @@ class OrderDB:
             query = await connect.execute(query)
             query = query.fetchone()
 
-            order_list = {query[1]: query[2]}
+            order_list = {query[2]: query[3]}
             await cls.add_order(user_id, order_list)
 
     @classmethod
@@ -548,17 +549,20 @@ class OrderDB:
     @classmethod
     async def get_count(cls, user_id: int) -> int:
         async with cls.__async_engine.connect() as connect:
-            try:
-                query = text(
-                    "SELECT count FROM temp WHERE user_id=:user_id"
-                ).bindparams(user_id=user_id)
 
-                query = await connect.execute(query)
+            query = text(
+                "SELECT count FROM temp WHERE user_id=:user_id"
+            ).bindparams(user_id=user_id)
 
-                return query.scalar()
+            query = await connect.execute(query)
 
-            except TypeError:
+            query = query.scalar()
+
+            if query is None:
                 return 1
+
+            return query
+
 
     @classmethod
     async def is_temp_exists(cls, user_id: int) -> int or False:

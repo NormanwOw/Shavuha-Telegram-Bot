@@ -17,6 +17,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
     # BASKET PAGE CALLBACKS
     # =============================================================================================
     try:
+        # SET ORDER TIME PAGE
         if 'set_time' in callback.data:
             if callback.data == 'set_time':
                 time, hour, minute = await get_time()
@@ -56,6 +57,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     reply_markup=await pages.basket_menu_page(user_id)
                 )
 
+        # ORDER COMMENT PAGE
         if callback.data == 'order_comment':
             if await OrderDB.get_comment(user_id) is None:
 
