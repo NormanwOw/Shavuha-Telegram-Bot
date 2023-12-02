@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Column, Boolean
+from sqlalchemy import Integer, BigInteger, String, Column, Boolean
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -10,7 +10,7 @@ class Employee(Base):
     __tablename__ = 'employees'
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     full_name = Column(String, nullable=False)
     status = Column(String, nullable=False)
     date = Column(String, nullable=False)
@@ -20,12 +20,12 @@ class Order(Base):
     __tablename__ = 'orders'
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     order_list = Column(String, nullable=False)
-    price = Column(Integer, nullable=False)
-    order_user_time = Column(String, nullable=False)
-    order_time = Column(String, nullable=False)
-    comment = Column(String, nullable=False)
+    price = Column(Integer, nullable=True)
+    order_user_time = Column(String, nullable=True)
+    order_time = Column(String, nullable=True)
+    comment = Column(String, nullable=True)
 
 
 class Price(Base):
@@ -34,7 +34,7 @@ class Price(Base):
     id = Column(Integer, primary_key=True)
     product = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
-    desc = Column(String, nullable=False)
+    description = Column(String, nullable=False)
     url = Column(String, nullable=False)
 
 
@@ -60,7 +60,7 @@ class Mail(Base):
     __tablename__ = 'mails'
 
     id = Column(Integer, primary_key=True)
-    mail = Column(Integer, nullable=False)
+    mail = Column(String, nullable=False)
     selected = Column(Boolean, nullable=False)
 
 
@@ -68,8 +68,8 @@ class Temp(Base):
     __tablename__ = 'temp'
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
-    product = Column(Integer, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    product = Column(String, nullable=False)
     count = Column(Integer, nullable=False)
 
 
@@ -77,8 +77,8 @@ class Archive(Base):
     __tablename__ = 'archive'
 
     id = Column(Integer, primary_key=True)
-    order_number = Column(Integer, nullable=False)
-    user_id = Column(Integer, nullable=False)
+    order_number = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     price = Column(Integer, nullable=False)
     order_list = Column(String, nullable=False)
     comment = Column(String, nullable=False)

@@ -378,7 +378,9 @@ async def message_filter(message: types.Message):
 async def inline_h(query: types.InlineQuery):
     if get_json('data.json')['is_bot_enabled']:
         item_list = []
-        for product in await OrderDB.get_prices():
+        prices = await OrderDB.get_prices()
+
+        for product in prices:
             product = list(product)
             if query.chat_type == 'sender':
                 msg = InputTextMessageContent(product[0])

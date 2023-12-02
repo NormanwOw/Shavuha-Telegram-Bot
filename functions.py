@@ -61,11 +61,14 @@ async def generate_id() -> str:
 
 @logger.catch
 async def generate_order_number() -> int:
-    order_number = random.randint(100000, 999999)
-    while order_number in await OrderDB.get_order_numbers():
+    low = 10**6
+    high = 10**7 - 1
+    order_number = random.randint(low, high)
+
+    while await OrderDB.get_order_numbers(order_number):
         order_number += 1
-        if order_number > 999999:
-            order_number = random.randint(100000, 999999)
+        if order_number > high:
+            order_number = random.randint(low, high)
 
     return order_number
 

@@ -1,5 +1,6 @@
 from callbacks import *
 from states import *
+from order_db import OrderDB
 
 
 async def start_command(bot: Bot, message: types.Message):
