@@ -45,7 +45,7 @@ async def admin_stats() -> str:
     return ADMIN_TITLE + f'\n ▫️ Заказов за 24 часа: {orders_day}' \
                          f'\n ▫️ Заказов за 30 дней: {orders_month}' \
                          f'\n ▫️ Всего заказов: {orders}' \
-                         f'\n ▫️ Средний чек: {avg_price}'
+                         f'\n ▫️ Средний чек: {int(avg_price)}'
 
 
 EMPLOYEE_TITLE = '👬 <b>Персонал</b>'

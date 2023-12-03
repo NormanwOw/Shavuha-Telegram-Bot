@@ -235,8 +235,8 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
         if callback.data == 'admin_menu':
             await bot.edit_message_text(
                 text=EDIT_MENU_TITLE,
-                chat_id = user_id,
-                message_id = msg_id,
+                chat_id=user_id,
+                message_id=msg_id,
                 reply_markup=await pages.edit_menu_page(False)
             )
 
@@ -384,7 +384,6 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 _, mail_text = await OrderDB.get_mail()
                 if users:
                     for user in users:
-
                         await bot.send_message(
                             chat_id=user,
                             text=mail_text
@@ -501,7 +500,6 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await callback.answer('Редактирование цены')
 
         if callback.data == 'menu_add':
-
             await bot.send_message(
                 chat_id=user_id,
                 text='Введите название товара:',
@@ -642,14 +640,14 @@ async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page:
         else:
             if selected_page == 0:
                 await message.answer(await user_orders_page(
-                        user_orders_count, selected_page, user_orders_count, user_orders
-                    )
+                    user_orders_count, selected_page, user_orders_count, user_orders
                 )
+                                     )
             else:
                 await bot.send_message(
                     chat_id=user_id,
                     text=await user_orders_page(
-                        user_orders_count, selected_page, user_orders_count,user_orders
+                        user_orders_count, selected_page, user_orders_count, user_orders
                     )
                 )
     else:
@@ -662,5 +660,4 @@ async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page:
                 text='Список заказов пуст'
             )
 
-    if selected_page == 0:
-        await bot.delete_message(user_id, msg_id)
+    await bot.delete_message(user_id, msg_id)

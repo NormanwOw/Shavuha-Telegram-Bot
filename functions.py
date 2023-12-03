@@ -155,7 +155,9 @@ async def get_xlsx() -> str:
         cell.style = 'Accent1'
         cell.alignment = Alignment(horizontal='center')
 
-    for i, order in enumerate(await OrderDB.get_all_from_archive()):
+    archive = await OrderDB.get_all_from_archive()
+
+    for i, order in enumerate(archive):
         ws.append([order[i] for i in [1, 4, 3, 6, 7]])
         ws[f'C{i + 2}'].number_format = '#,## ₽'
         ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')

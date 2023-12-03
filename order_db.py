@@ -322,7 +322,7 @@ class OrderDB:
             )
             query = await connect.execute(query)
 
-            return query.scalars().all()
+            return query.all()
 
     @classmethod
     async def get_order_numbers(cls, order_number: int) -> int:
@@ -431,7 +431,7 @@ class OrderDB:
 
             query = await connect.execute(query)
 
-            return query.scalars().all()
+            return query.all()
 
     @classmethod
     async def get_all_user_id(cls) -> list or False:
@@ -567,7 +567,6 @@ class OrderDB:
 
             return query
 
-
     @classmethod
     async def is_temp_exists(cls, user_id: int) -> int or False:
         async with cls.__async_engine.connect() as connect:
@@ -626,13 +625,15 @@ class OrderDB:
     async def insert_mail(cls, mail: str):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE mails SET selected = 0"
+                "UPDATE mails SET selected=false"
             )
             await connect.execute(stmt)
 
+            mail_id = await cls.get_mails_count() + 1
+
             stmt = text(
-                "INSERT INTO mails (mail, selected) VALUES (:mail, 1)"
-            ).bindparams(mail=mail)
+                "INSERT INTO mails (id, mail, selected) VALUES (:id, :mail, true)"
+            ).bindparams(id=mail_id, mail=mail)
             await connect.execute(stmt)
 
             await connect.commit()
@@ -641,7 +642,7 @@ class OrderDB:
     async def get_mail(cls) -> tuple:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT id, mail FROM mails WHERE selected = 1"
+                "SELECT id, mail FROM mails WHERE selected=true"
             )
             query = await connect.execute(query)
 
@@ -662,7 +663,7 @@ class OrderDB:
         async with cls.__async_engine.connect() as connect:
             mail = await cls.get_mail()
             stmt = text(
-                "DELETE FROM mails WHERE selected = 1"
+                "DELETE FROM mails WHERE selected=true"
             )
             await connect.execute(stmt)
 
@@ -684,7 +685,7 @@ class OrderDB:
                 mail_id = await connect.execute(query)
 
                 stmt = text(
-                    "UPDATE mails SET selected=1 WHERE id=id"
+                    "UPDATE mails SET selected=true WHERE id=id"
                 ).bindparams(id=mail_id)
 
                 await connect.execute(stmt)
@@ -698,18 +699,18 @@ class OrderDB:
         async with cls.__async_engine.connect() as connect:
             move = 1 if direct else -1
             query = text(
-                "SELECT id FROM mails WHERE selected = 1"
+                "SELECT id FROM mails WHERE selected=true"
             )
             query = await connect.execute(query)
             mail_id = query.scalar()
 
             stmt = text(
-                "UPDATE mails SET selected = 0"
+                "UPDATE mails SET selected=false"
             )
             await connect.execute(stmt)
 
             stmt = text(
-                "UPDATE mails SET selected = 1 WHERE id=:id"
+                "UPDATE mails SET selected=true WHERE id=:id"
             ).bindparams(id=mail_id+move)
 
             await connect.execute(stmt)
