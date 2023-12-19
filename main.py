@@ -167,7 +167,7 @@ async def change_product_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(EDIT_MENU_TITLE, reply_markup=await pages.edit_menu_page())
+        await message.answer(EDIT_MENU_TITLE, reply_markup=await pages.edit_menu_page(False))
         await OrderDB.set_product_image(message.text, product)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
