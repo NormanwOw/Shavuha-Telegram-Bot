@@ -224,7 +224,7 @@ class OrderDB:
     async def get_prices(cls) -> list:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT (product, price, description, url) FROM prices"
+                "SELECT (product, price, description, url) FROM prices ORDER BY id"
             )
             query = await connect.execute(query)
 
@@ -258,7 +258,7 @@ class OrderDB:
     async def set_product_desc(cls, description: str, product: str):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE prices SET description=description WHERE product=:product"
+                "UPDATE prices SET description=:description WHERE product=:product"
             ).bindparams(description=description, product=product)
 
             await connect.execute(stmt)
