@@ -87,7 +87,7 @@ class OrderDB:
                     else:
                         order_list = order_list | new_order_list
 
-                    order_list = json.dumps(order_list, ensure_ascii=False)
+                order_list = json.dumps(order_list, ensure_ascii=False)
 
                 stmt = text(
                     "UPDATE orders SET order_list=:order_list WHERE user_id=:user_id"
@@ -531,13 +531,13 @@ class OrderDB:
     async def temp_to_order(cls, user_id: int):
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT * FROM temp WHERE user_id=:user_id"
+                "SELECT (product, count) FROM temp WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             query = await connect.execute(query)
-            query = query.fetchone()
+            query = query.scalars().fetchall()
 
-            order_list = {query[2]: query[3]}
+            order_list = {key: value for key, value in query}
             await cls.add_order(user_id, order_list)
 
     @classmethod
