@@ -651,13 +651,7 @@ async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page:
                     )
                 )
     else:
-        if selected_page == 0:
-            await message.answer('Список заказов пуст')
-        else:
-
-            await bot.send_message(
-                chat_id=user_id,
-                text='Список заказов пуст'
-            )
-
-    await bot.delete_message(user_id, msg_id)
+        await bot.send_message(
+            chat_id=user_id,
+            text='Список заказов пуст'
+        )

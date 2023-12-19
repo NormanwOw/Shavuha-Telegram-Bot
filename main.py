@@ -63,6 +63,7 @@ async def my_orders(message: types.Message):
     Show order list
     """
     await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
+    await bot.delete_message(message.from_user.id, message.message_id)
 
 
 @dp.message_handler(commands=['error'])
