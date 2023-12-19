@@ -549,6 +549,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
 
         if 'remove_product' in callback.data:
             product = callback.data[15:]
+            await OrderDB.delete_product(product)
 
             await bot.edit_message_text(
                 text=EDIT_MENU_TITLE,
@@ -556,9 +557,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 message_id=msg_id,
                 reply_markup=await pages.edit_menu_page(True)
             )
-
             await callback.answer(f'Товар удалён', show_alert=True)
-            await OrderDB.delete_product(product)
 
         if callback.data == 'back_to_edit_menu':
             await bot.edit_message_text(
