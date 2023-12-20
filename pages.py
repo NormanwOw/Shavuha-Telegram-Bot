@@ -73,6 +73,9 @@ async def edit_menu_page(del_product: bool, page=1) -> InlineKeyboardMarkup:
     prices_list_rows = prices_list[rows*page-rows:rows*page]
     next_page_len = len(prices_list) - rows*page
 
+    if next_page_len < 0:
+        next_page_len = 0
+
     for product, price, desc, url in prices_list_rows:
         if del_product:
             ikb.add(InlineKeyboardButton('🚫', callback_data='remove_product_' + product))
