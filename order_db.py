@@ -642,11 +642,11 @@ class OrderDB:
     async def get_mail(cls) -> tuple:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT id, mail FROM mails WHERE selected=true"
+                "SELECT (id, mail) FROM mails WHERE selected=true"
             )
             query = await connect.execute(query)
 
-            return query.fetchone()
+            return query.scalar()
 
     @classmethod
     async def get_mails_count(cls) -> int:
@@ -666,6 +666,7 @@ class OrderDB:
                 "DELETE FROM mails WHERE selected=true"
             )
             await connect.execute(stmt)
+            await connect.commit()
 
             mails_count = await cls.get_mails_count()
             selected_id = count = mail[0]
@@ -676,16 +677,18 @@ class OrderDB:
 
                 count += 1
                 await connect.execute(stmt)
-                await connect.commit()
+
+            await connect.commit()
 
             try:
                 query = text(
-                    "SELECT id FROM mails ORDER BY ID DESC LIMIT 1"
+                    "SELECT id FROM mails ORDER BY id DESC LIMIT 1"
                 )
-                mail_id = await connect.execute(query)
+                query = await connect.execute(query)
+                mail_id = query.scalar()
 
                 stmt = text(
-                    "UPDATE mails SET selected=true WHERE id=id"
+                    "UPDATE mails SET selected=true WHERE id=:id"
                 ).bindparams(id=mail_id)
 
                 await connect.execute(stmt)
