@@ -9,6 +9,7 @@ from messages import *
 from functions import *
 from markups import *
 from states import *
+from pages import Basket, Product, Employees, EditMenu, Settings, Mail, MyOrders
 import pages
 
 
@@ -26,7 +27,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=SET_TIME_MESSAGE,
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.set_time_page(user_id, hour, minute)
+                    reply_markup=await Basket.set_time_page(user_id, hour, minute)
                 )
 
                 await OrderDB.set_order_time(user_id, time)
@@ -41,7 +42,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=await basket_title(user_id),
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.basket_menu_page(user_id)
+                    reply_markup=await Basket.show_page(user_id)
                 )
 
                 await callback.answer('Точное время отменено')
@@ -54,7 +55,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=await basket_title(user_id),
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.basket_menu_page(user_id)
+                    reply_markup=await Basket.show_page(user_id)
                 )
 
         # ORDER COMMENT PAGE
@@ -73,7 +74,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=await order_comment_title(user_id),
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.comment_page()
+                    reply_markup=await Basket.comment_page()
                 )
 
         # CREATE PAY INVOICE
@@ -128,7 +129,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=EMPTY_BASKET,
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.basket_menu_page(user_id)
+                    reply_markup=await Basket.show_page(user_id)
                 )
 
                 return
@@ -136,7 +137,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_reply_markup(
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.basket_menu_page(user_id)
+                reply_markup=await Basket.show_page(user_id)
             )
 
         # SHOW ORDER TIME PAGE
@@ -148,7 +149,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 await bot.edit_message_reply_markup(
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.set_time_page(user_id, hour, minute)
+                    reply_markup=await Basket.set_time_page(user_id, hour, minute)
                 )
 
             except aiogram.utils.exceptions.MessageNotModified:
@@ -165,7 +166,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=await basket_title(user_id),
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.basket_menu_page(user_id)
+                reply_markup=await Basket.show_page(user_id)
             )
 
         # ORDER PAGE CALLBACKS
@@ -192,7 +193,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_reply_markup(
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.product_page(user_id, product)
+                reply_markup=await Product.show_page(user_id, product)
             )
 
         if 'basket_add' in callback.data:
@@ -205,7 +206,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_reply_markup(
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.product_page(user_id, product)
+                reply_markup=await Product.show_page(user_id, product)
             )
 
         if callback.data == 'basket':
@@ -215,21 +216,21 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 await bot.send_message(
                     chat_id=user_id,
                     text=await basket_title(user_id),
-                    reply_markup=await pages.basket_menu_page(user_id)
+                    reply_markup=await Basket.show_page(user_id)
                 )
 
         # ADMIN PAGE CALLBACKS
         # ======================================================================================================================
 
         if callback.data == 'admin_employees':
-            password = get_json('data.json')
+            password = await get_json('data.json')
 
             await bot.edit_message_text(
                 text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
                                       f'<b>{password["employee_password"]}</b>',
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.employees_page()
+                reply_markup=await Employees.show_page()
             )
 
         if callback.data == 'admin_menu':
@@ -237,7 +238,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EDIT_MENU_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.edit_menu_page(False)
+                reply_markup=await EditMenu.show_page(False)
             )
 
         if callback.data == 'admin_xlsx':
@@ -259,7 +260,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=SETTINGS_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.settings_page()
+                reply_markup=await Settings.show_page()
             )
 
         if 'state_bot' in callback.data:
@@ -273,7 +274,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await bot.edit_message_reply_markup(
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.settings_page()
+                reply_markup=await Settings.show_page()
             )
 
         if callback.data == 'admin_stats':
@@ -302,7 +303,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=MAILS_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.mails_page()
+                reply_markup=await Mail.show_page()
             )
 
         if 'my_mails' in callback.data:
@@ -327,13 +328,13 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=mail_text,
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.my_mails(mail_id)
+                    reply_markup=await Mail.my_mails(mail_id)
                 )
             except TypeError:
                 await callback.answer('Список рассылок пуст')
 
         if callback.data == 'create_mail':
-            await Mail.new_mail.set()
+            await StateMail.new_mail.set()
             await bot.send_message(
                 chat_id=user_id,
                 text='Введите текст рассылки',
@@ -345,7 +346,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=MAILS_TITLE + MAILS_HELP,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.mails_page()
+                reply_markup=await Mail.show_page()
             )
 
         if 'delete_mail' in callback.data:
@@ -359,14 +360,14 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                         text=mail_text,
                         chat_id=user_id,
                         message_id=msg_id,
-                        reply_markup=await pages.my_mails(mail_id)
+                        reply_markup=await Mail.my_mails(mail_id)
                     )
                 else:
                     await bot.edit_message_text(
                         text=MAILS_TITLE,
                         chat_id=user_id,
                         message_id=msg_id,
-                        reply_markup=await pages.mails_page()
+                        reply_markup=await Mail.show_page()
                     )
             elif 'no' in callback.data:
                 await callback.answer('Удаление отменено', show_alert=True)
@@ -431,7 +432,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.employees_page()
+                reply_markup=await Employees.show_page()
             )
 
         if 'remove_employee' in callback.data:
@@ -442,11 +443,11 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EMPLOYEE_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.employees_page()
+                reply_markup=await Employees.show_page()
             )
 
         if callback.data == 'employee_help':
-            password = get_json('data.json')
+            password = await get_json('data.json')
 
             await bot.edit_message_text(
                 text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
@@ -454,7 +455,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                                       f'\n' + EMPLOYEE_HELP,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.employees_page()
+                reply_markup=await Employees.show_page()
             )
 
         # EDIT MENU CALLBACKS
@@ -514,7 +515,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EDIT_MENU_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.edit_menu_page(True)
+                reply_markup=await EditMenu.show_page(True)
             )
 
         if callback.data == 'menu_help':
@@ -522,7 +523,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EDIT_MENU_TITLE + '\n' + MENU_HELP,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.edit_menu_page(False)
+                reply_markup=await EditMenu.show_page(False)
             )
 
         if 'menu_page' in callback.data:
@@ -536,7 +537,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=EDIT_MENU_TITLE,
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.edit_menu_page(del_product, page + 1)
+                    reply_markup=await EditMenu.show_page(del_product, page + 1)
                 )
 
             elif 'prev' in callback.data and page != 1:
@@ -544,7 +545,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                     text=EDIT_MENU_TITLE,
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.edit_menu_page(del_product, page - 1)
+                    reply_markup=await EditMenu.show_page(del_product, page - 1)
                 )
 
         if 'remove_product' in callback.data:
@@ -555,7 +556,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EDIT_MENU_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.edit_menu_page(True)
+                reply_markup=await EditMenu.show_page(True)
             )
             await callback.answer(f'Товар удалён', show_alert=True)
 
@@ -564,7 +565,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
                 text=EDIT_MENU_TITLE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await pages.edit_menu_page(False)
+                reply_markup=await EditMenu.show_page(False)
             )
 
         # MY ORDERS CALLBACKS
@@ -600,7 +601,7 @@ async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMCon
         await bot.send_message(
             chat_id=callback.from_user.id,
             text='✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await pages.edit_menu_page(False)
+            reply_markup=await EditMenu.show_page(False)
         )
 
     await state.finish()
@@ -625,7 +626,7 @@ async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page:
                     text=await user_orders_page(
                         last_page, selected_page, user_orders_count, user_orders
                     ),
-                    reply_markup=await pages.my_orders_navigation(total_pages, total_pages)
+                    reply_markup=await MyOrders.show_page(total_pages, total_pages)
                 )
             else:
                 await bot.edit_message_text(
@@ -634,7 +635,7 @@ async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page:
                     ),
                     chat_id=user_id,
                     message_id=msg_id,
-                    reply_markup=await pages.my_orders_navigation(selected_page, total_pages)
+                    reply_markup=await MyOrders.show_page(selected_page, total_pages)
                 )
         else:
             if selected_page == 0:

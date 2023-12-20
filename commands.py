@@ -4,7 +4,8 @@ from order_db import OrderDB
 
 
 async def start_command(bot: Bot, message: types.Message):
-    state = get_json('data.json')['is_bot_enabled']
+    state = await get_json('data.json')
+    state = state['is_bot_enabled']
 
     if state:
         await bot.send_photo(

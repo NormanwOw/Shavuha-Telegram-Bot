@@ -4,8 +4,10 @@ import string
 import hashlib
 import datetime
 
+
 from aiogram import types, Bot
 from asyncio import sleep
+from aiofile import async_open
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 
@@ -16,21 +18,20 @@ from messages import ERROR_F
 
 @logger.catch
 async def set_json(path: str, data: dict):
-    json_data = get_json(path)
+    json_data = await get_json(path)
     json_data = json_data | data
-    with open(path, 'w') as file:
-        json.dump(json_data, file, ensure_ascii=False)
-    await sleep(0.1)
+    async with async_open(path, 'w') as file:
+        await file.write(json.dumps(json_data))
 
 
 @logger.catch
-def get_json(path: str) -> dict:
-    with open(path, 'r') as file:
-        return json.load(file)
+async def get_json(path: str) -> dict:
+    async with async_open(path, 'r') as file:
+        return json.loads(await file.read())
 
 
 @logger.catch
-def gen_password() -> str:
+async def gen_password() -> str:
     password = ''
     pw_str = string.digits+string.ascii_uppercase
     for ch in ['I', 'O', '0', 'J', 'Z', 'C']:
@@ -38,14 +39,17 @@ def gen_password() -> str:
     length = len(pw_str)
     for i in range(5):
         password += pw_str[random.randint(0, length-1)]
+    await sleep(0.01)
+
     return password
 
 
 @logger.catch
 async def update_password() -> str:
-    pw = gen_password()
+    pw = await gen_password()
     pw_dict = {'employee_password': pw}
     await set_json('data.json', pw_dict)
+
     return pw
 
 
@@ -198,6 +202,6 @@ async def user_orders_page(count: int, selected_page: int, user_orders_count: in
                       f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
             num += 1
 
-    await sleep(0.1)
+    await sleep(0.01)
 
     return answer
