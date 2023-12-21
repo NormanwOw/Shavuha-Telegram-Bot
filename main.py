@@ -11,7 +11,7 @@ from aiogram.types.message import ContentType
 import callbacks
 import commands
 
-from pages import Basket, Product, EditMenu, Mail
+from menus import Basket, Product, EditMenu, Mail
 from config import API_TOKEN
 from functions import *
 from markups import *
@@ -148,7 +148,7 @@ async def change_product_desc(message: types.Message, state: FSMContext):
     await bot.send_message(
         chat_id=message.from_user.id,
         text='✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
-        reply_markup=await EditMenu.show_page(False)
+        reply_markup=await EditMenu.get_page(False)
     )
 
     await state.finish()
@@ -169,7 +169,7 @@ async def change_product_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(EDIT_MENU_TITLE, reply_markup=await EditMenu.show_page(False))
+        await message.answer(EDIT_MENU_TITLE, reply_markup=await EditMenu.get_page(False))
         await OrderDB.set_product_image(message.text, product)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
@@ -198,7 +198,7 @@ async def change_product_price(message: types.Message, state: FSMContext):
         await bot.send_message(
             chat_id=message.from_user.id,
             text='✅ Цена изменена\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await EditMenu.show_page(False)
+            reply_markup=await EditMenu.get_page(False)
         )
 
         await state.finish()
@@ -274,7 +274,7 @@ async def add_product_image(message: types.Message, state: FSMContext):
         await bot.send_message(
             message.from_user.id,
             '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await EditMenu.show_page(False)
+            reply_markup=await EditMenu.get_page(False)
         )
 
         ProductList.append_product_list(message.text)
@@ -331,8 +331,8 @@ async def set_comment(message: types.Message, state: FSMContext):
 
     await bot.send_message(
         chat_id=message.from_user.id,
-        text=await basket_title(message.from_user.id),
-        reply_markup=await Basket.show_page(message.from_user.id)
+        text=await Basket.get_title(message.from_user.id),
+        reply_markup=await Basket.get_page(message.from_user.id)
     )
 
 
@@ -362,7 +362,7 @@ async def message_filter(message: types.Message):
                     message.from_user.id,
                     photo=product[3],
                     caption=f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await Product.show_page(message.from_user.id, product[0])
+                    reply_markup=await Product.get_page(message.from_user.id, product[0])
                 )
 
             except aiogram.utils.exceptions.BadRequest:
@@ -370,7 +370,7 @@ async def message_filter(message: types.Message):
                 await bot.send_message(
                     message.from_user.id,
                     f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await Product.show_page(message.from_user.id, product[0])
+                    reply_markup=await Product.get_page(message.from_user.id, product[0])
                 )
 
             await OrderDB.add_temp(message.from_user.id, product[0])

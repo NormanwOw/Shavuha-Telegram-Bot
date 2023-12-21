@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, LabeledPrice
+import aiogram.utils.exceptions
 
-from order_db import OrderDB
-from markups import menu
-from functions import get_json
+from config import PAY_TOKEN
+from functions import *
+from messages import *
+from markups import *
+from states import *
 from config import logger
 
 
@@ -13,14 +16,14 @@ class Menu(ABC):
 
     @classmethod
     @abstractmethod
-    async def show_page(cls, *args):
+    async def get_page(cls, *args):
         pass
 
 
 class Basket(Menu):
 
     @classmethod
-    async def show_page(cls, user_id: int) -> InlineKeyboardMarkup:
+    async def get_page(cls, user_id: int) -> InlineKeyboardMarkup:
         prices = await cls.db.get_prices()
         order = await cls.db.get_order_list(user_id)
         ikb = InlineKeyboardMarkup(row_width=3)
@@ -44,6 +47,30 @@ class Basket(Menu):
         ikb.add(InlineKeyboardButton(f'Оплатить {total_price},00 RUB', callback_data='pay'))
 
         return ikb
+
+    @classmethod
+    async def back_to_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        if 'del' in callback.data:
+            await OrderDB.delete_comment(user_id)
+            await callback.answer('Комментарий удалён')
+
+        await bot.edit_message_text(
+            text=await Basket.get_title(user_id),
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await Basket.get_page(user_id)
+        )
+
+    @classmethod
+    async def show_page(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+        if await cls.db.get_order_by_id(user_id) is None:
+            await callback.answer('Корзина пуста')
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text=await cls.get_title(user_id),
+                reply_markup=await cls.get_page(user_id)
+            )
 
     @classmethod
     async def set_time_page(cls, user_id: int, hour: int, minute: int) -> InlineKeyboardMarkup:
@@ -103,6 +130,109 @@ class Basket(Menu):
 
         return ikb
 
+    @classmethod
+    async def show_time_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        _, hour, minute = await get_time()
+        if 'next' in callback.data:
+            hour += 6
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.set_time_page(user_id, hour, minute)
+            )
+
+        except aiogram.utils.exceptions.MessageNotModified:
+            await callback.answer()
+            return
+
+    @classmethod
+    async def get_title(cls, user_id: int) -> str:
+        title = '🛒 <b>Корзина</b>'
+        time = await cls.db.get_order_user_time(user_id)
+        comment = await cls.db.get_comment(user_id)
+        if time is None:
+            time = ''
+        else:
+            time = '\n⏱ ' + await cls.db.get_order_user_time(user_id)
+
+        if comment is None:
+            comment = ''
+        else:
+            comment = '\n✏ ' + comment
+
+        return title + time + comment
+
+    @classmethod
+    async def set_time(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        if callback.data == 'set_time':
+            time, hour, minute = await get_time()
+
+            await bot.edit_message_text(
+                text=SET_TIME_MESSAGE,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.set_time_page(user_id, hour, minute)
+            )
+
+            await cls.db.set_order_time(user_id, time)
+
+        elif callback.data == 'cancel_set_time':
+            if await cls.db.get_order_user_time(user_id) is None:
+                await callback.answer()
+                return
+
+            await cls.db.set_order_user_time(user_id, None)
+
+            await bot.edit_message_text(
+                text=await cls.get_title(user_id),
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.get_page(user_id)
+            )
+
+            await callback.answer('Точное время отменено')
+        else:
+            time = callback.data[9:]
+            await callback.answer(time)
+            await cls.db.set_order_user_time(user_id, time)
+
+            await bot.edit_message_text(
+                text=await cls.get_title(user_id),
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.get_page(user_id)
+            )
+
+    @classmethod
+    async def get_comment_title(cls, user_id: int) -> str:
+        title = '<b>✏ Комментарий к заказу</b>'
+        comment = await cls.db.get_comment(user_id)
+        if comment is None:
+            comment = ''
+        else:
+            comment = '\n ' + comment
+        return title + comment
+
+    @classmethod
+    async def set_comment(cls, user_id: int, msg_id: int, bot: Bot):
+        if await cls.db.get_comment(user_id) is None:
+
+            await bot.send_message(
+                chat_id=user_id,
+                text='Комментарий к заказу:',
+                reply_markup=ikb_cancel
+            )
+
+            await OrderComment.get_comment.set()
+        else:
+            await bot.edit_message_text(
+                text=await cls.get_comment_title(user_id),
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.comment_page()
+            )
+
     @staticmethod
     async def comment_page() -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup()
@@ -111,11 +241,74 @@ class Basket(Menu):
 
         return ikb
 
+    @classmethod
+    async def product_counter(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[4:]
+        if '!up' in callback.data:
+            count = 1
+        else:
+            count = -1
+        await OrderDB.add_order(user_id, {product: count})
+
+        if await OrderDB.get_products_count(user_id) == 0:
+            await OrderDB.clear_basket(user_id)
+
+            await bot.edit_message_text(
+                text=EMPTY_BASKET,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await Basket.get_page(user_id)
+            )
+
+            return
+
+        await bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await Basket.get_page(user_id)
+        )
+
+    @classmethod
+    async def get_pay_invoice(cls, user_id: int, msg_id: int, bot: Bot):
+        data = await cls.db.get_order_by_id(user_id)
+        try:
+            order_list = json.loads(data[2])
+        except TypeError:
+            await bot.delete_message(user_id, msg_id)
+            return
+        order_prices = []
+
+        prices = await cls.db.get_prices()
+        desc = ''
+        p = ''
+        for item in order_list:
+            for i in prices:
+                if i[0] == item:
+                    p = i[1]
+            cnt = order_list[item]
+            label = item + f' - {cnt}шт.'
+            lp = LabeledPrice(label=label, amount=p * cnt * 100)
+            order_prices.append(lp)
+
+            desc += f' ▫️ {item}'
+
+        await bot.send_invoice(
+            chat_id=user_id,
+            title='Заказ',
+            description=desc,
+            provider_token=PAY_TOKEN,
+            currency='rub',
+            start_parameter='example',
+            payload=order_list,
+            prices=order_prices,
+            need_shipping_address=False
+        )
+
 
 class Product(Menu):
 
     @classmethod
-    async def show_page(cls, user_id: int, product: str) -> InlineKeyboardMarkup:
+    async def get_page(cls, user_id: int, product: str) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup(row_width=3)
         ikb.row(InlineKeyboardButton('-', callback_data=f'-{product}'),
                 InlineKeyboardButton(f'{await cls.db.get_count(user_id)}', callback_data='None'),
@@ -130,11 +323,56 @@ class Product(Menu):
 
         return ikb
 
+    @classmethod
+    async def product_counter(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        count = await cls.db.get_count(user_id)
+        product = callback.data[1:]
+        if await cls.db.is_temp_exists(user_id) is False:
+            await cls.db.add_temp(user_id, product)
+        else:
+            if '+' in callback.data:
+                if count > 21:
+                    await callback.answer()
+                    return
+                await cls.db.set_count(user_id, count + 1)
+            else:
+                if count == 1:
+                    await callback.answer()
+                    return
+                await cls.db.set_count(user_id, count - 1)
+
+        await bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page(user_id, product)
+        )
+
+    @classmethod
+    async def add(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[11:]
+        time = await get_time()
+        await cls.db.temp_to_order(user_id)
+        await cls.db.set_order_time(user_id, time[0])
+        await callback.answer('Товар добавлен в корзину')
+
+        await bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page(user_id, product)
+        )
+
+
+class Admin(Menu):
+
+    @classmethod
+    async def get_page(cls):
+        pass
+
 
 class Employees(Menu):
 
     @classmethod
-    async def show_page(cls) -> InlineKeyboardMarkup:
+    async def get_page(cls) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup(row_width=3)
         employees_list = await cls.db.get_id_name_by_status('Повар')
         for employee in employees_list:
@@ -151,7 +389,7 @@ class Employees(Menu):
 class EditMenu(Menu):
 
     @classmethod
-    async def show_page(cls, del_product: bool, page: int = 1) -> InlineKeyboardMarkup:
+    async def get_page(cls, del_product: bool, page: int = 1) -> InlineKeyboardMarkup:
         rows = 6
         ikb = InlineKeyboardMarkup(row_width=3)
         prices_list = await cls.db.get_prices()
@@ -202,7 +440,7 @@ class EditMenu(Menu):
 class Settings(Menu):
 
     @staticmethod
-    async def show_page() -> InlineKeyboardMarkup:
+    async def get_page() -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup()
         data = await get_json('data.json')
         bot_enabled = data['is_bot_enabled']
@@ -221,7 +459,7 @@ class Settings(Menu):
 class Mail(Menu):
 
     @classmethod
-    async def show_page(cls) -> InlineKeyboardMarkup:
+    async def get_page(cls) -> InlineKeyboardMarkup:
         mails_count = await cls.db.get_mails_count()
         mails = f'Мои рассылки ({mails_count})' if mails_count else 'Мои рассылки'
         ikb = InlineKeyboardMarkup()
@@ -250,7 +488,7 @@ class Mail(Menu):
 class MyOrders(Menu):
 
     @staticmethod
-    async def show_page(page: int, pages: int) -> InlineKeyboardMarkup:
+    async def get_page(page: int, pages: int) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup()
         ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))
         ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))

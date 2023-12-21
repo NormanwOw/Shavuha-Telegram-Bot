@@ -7,33 +7,6 @@ MAIN_PAGE = '<b>За углом втихаря</b> 🌮\n\n   Рады прив�
             '📞 <u>+7(952)664-17-06</u>.\n\nРаботаем круглосуточно без выходных'
 
 
-async def basket_title(user_id: int) -> str:
-    title = '🛒 <b>Корзина</b>'
-    time = await OrderDB.get_order_user_time(user_id)
-    comment = await OrderDB.get_comment(user_id)
-    if time is None:
-        time = ''
-    else:
-        time = '\n⏱ ' + await OrderDB.get_order_user_time(user_id)
-
-    if comment is None:
-        comment = ''
-    else:
-        comment = '\n✏ ' + comment
-
-    return title + time + comment
-
-
-async def order_comment_title(user_id: int) -> str:
-    title = '<b>✏ Комментарий к заказу</b>'
-    comment = await OrderDB.get_comment(user_id)
-    if comment is None:
-        comment = ''
-    else:
-        comment = '\n ' + comment
-    return title + comment
-
-
 ADMIN_TITLE = '🛠 <b>Панель управления</b>'
 
 
