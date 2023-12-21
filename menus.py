@@ -1,14 +1,16 @@
+import os
 from abc import ABC, abstractmethod
 
 from aiogram.types import CallbackQuery, LabeledPrice
 import aiogram.utils.exceptions
+from openpyxl import Workbook
+from openpyxl.styles import Alignment
 
 from config import PAY_TOKEN
 from functions import *
 from messages import *
 from markups import *
 from states import *
-from config import logger
 
 
 class Menu(ABC):
@@ -364,9 +366,83 @@ class Product(Menu):
 
 class Admin(Menu):
 
+    @staticmethod
+    async def get_page() -> InlineKeyboardMarkup:
+        ikb = InlineKeyboardMarkup()
+        ikb.row(InlineKeyboardButton('Персонал', callback_data='admin_employees'),
+                InlineKeyboardButton('Редактор меню', callback_data='admin_menu'))
+        ikb.row(InlineKeyboardButton('Статистика', callback_data='admin_stats'),
+                InlineKeyboardButton('Рассылки', callback_data='admin_mails'))
+        ikb.add(InlineKeyboardButton('История заказов .xlsx', callback_data='admin_xlsx'))
+        ikb.add(InlineKeyboardButton('Сообщить об ошибке', callback_data='admin_error'))
+        ikb.add(InlineKeyboardButton('Настройки', callback_data='admin_settings'))
+
+        return ikb
+
     @classmethod
-    async def get_page(cls):
-        pass
+    async def show_page(cls, user_id: int, msg_id: int, bot: Bot, show_stats: bool = False):
+        if show_stats:
+            avg_price = await cls.db.get_avg_order_price()
+            orders_day = await cls.db.get_orders_count_day()
+            orders_month = await cls.db.get_orders_count_month()
+            orders = await cls.db.get_orders_count()
+            stats = f'\n ▫️ Заказов за 24 часа: {orders_day}' \
+                    f'\n ▫️ Заказов за 30 дней: {orders_month}' \
+                    f'\n ▫️ Всего заказов: {orders}' \
+                    f'\n ▫️ Средний чек: {int(avg_price)}'
+        else:
+            stats = ''
+
+        await bot.edit_message_text(
+            text=ADMIN_TITLE + stats,
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page()
+        )
+
+    @classmethod
+    async def get_xlsx(cls, user_id: int, bot: Bot):
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
+
+        table = ['A', 'B', 'C', 'D', 'E']
+
+        for ch in table:
+            cell = ws[f'{ch}1']
+            cell.style = 'Accent1'
+            cell.alignment = Alignment(horizontal='center')
+
+        archive = await cls.db.get_all_from_archive()
+
+        for i, order in enumerate(archive):
+            ws.append([order[i] for i in [1, 4, 3, 6, 7]])
+            ws[f'C{i + 2}'].number_format = '#,## ₽'
+            ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')
+            ws[f'E{i + 2}'].alignment = Alignment(horizontal='right')
+
+        ws.column_dimensions["A"].width = 15
+        ws.column_dimensions["B"].width = 60
+        ws.column_dimensions["C"].width = 12
+        ws.column_dimensions["D"].width = 13
+        ws.column_dimensions["E"].width = 10
+
+        now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+        path = now.strftime('%d.%m.%Y') + '.xlsx'
+        wb.save(path)
+
+        await bot.send_document(user_id, open(path, 'rb'))
+        for file in os.listdir():
+            if '.xlsx' in file:
+                os.remove(file)
+
+    @classmethod
+    async def get_error(cls, callback: CallbackQuery):
+        await callback.message.answer(
+            text=ERROR_TITLE,
+            reply_markup=ikb_cancel
+        )
+        await ErrorHandler.get_error.set()
 
 
 class Employees(Menu):
@@ -376,14 +452,38 @@ class Employees(Menu):
         ikb = InlineKeyboardMarkup(row_width=3)
         employees_list = await cls.db.get_id_name_by_status('Повар')
         for employee in employees_list:
-            ikb.add(InlineKeyboardButton('🚫', callback_data=f'remove_employee_{employee[0]}'))
+            ikb.add(InlineKeyboardButton('🚫', callback_data=f'delete_employee_{employee[0]}'))
             ikb.insert(InlineKeyboardButton(f'{employee[1]}', callback_data='None'))
 
-        ikb.add(InlineKeyboardButton('Сменить пароль', callback_data='change_password'))
+        ikb.add(InlineKeyboardButton('Сменить пароль', callback_data='update_password'))
         ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
         ikb.insert(InlineKeyboardButton('Помощь', callback_data='employee_help'))
 
         return ikb
+
+    @classmethod
+    async def show_page(cls, user_id: int, msg_id: int, bot: Bot,
+                        update_pw: bool = False, show_help: bool = False):
+        if update_pw:
+            pw = await update_password()
+        else:
+            password = await get_json('data.json')
+            pw = password["employee_password"]
+
+        help_msg = EMPLOYEE_HELP if show_help else ''
+
+        await bot.edit_message_text(
+            text=EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>{help_msg}',
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page()
+        )
+
+    @classmethod
+    async def delete(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        employee_id = int(callback.data[16:])
+        await cls.db.delete_employee(employee_id)
+        await cls.show_page(user_id, msg_id, bot)
 
 
 class EditMenu(Menu):
@@ -436,6 +536,15 @@ class EditMenu(Menu):
 
         return ikb
 
+    @classmethod
+    async def show_page(cls, user_id: int, msg_id: int, bot: Bot):
+        await bot.edit_message_text(
+            text=EDIT_MENU_TITLE,
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page(False)
+        )
+
 
 class Settings(Menu):
 
@@ -455,6 +564,41 @@ class Settings(Menu):
 
         return ikb
 
+    @classmethod
+    async def show_page(cls, user_id: int, msg_id: int, bot: Bot):
+        await bot.edit_message_text(
+            text=SETTINGS_TITLE,
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page()
+        )
+
+    @classmethod
+    async def switch_state(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        if 'off' in callback.data:
+            await set_json('data.json', {'is_bot_enabled': 0})
+            await callback.answer('Приём заказов остановлен', show_alert=True)
+        else:
+            await set_json('data.json', {'is_bot_enabled': 1})
+            await callback.answer('Приём заказов запущен', show_alert=True)
+
+        await bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page()
+        )
+
+    @classmethod
+    async def change_main_image(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        await bot.edit_message_text(
+            text='Отправьте изображение:',
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=ikb_cancel
+        )
+        await ChangeMainImage.get_main_image.set()
+        await callback.answer('Редактирование изображения')
+
 
 class Mail(Menu):
 
@@ -471,6 +615,17 @@ class Mail(Menu):
         return ikb
 
     @classmethod
+    async def show_page(cls, user_id: int, msg_id: int, bot: Bot, show_help: bool = False):
+        help_msg = MAILS_HELP if show_help else ''
+
+        await bot.edit_message_text(
+            text=MAILS_TITLE + help_msg,
+            chat_id=user_id,
+            message_id=msg_id,
+            reply_markup=await cls.get_page()
+        )
+
+    @classmethod
     async def my_mails(cls, page: int) -> InlineKeyboardMarkup:
         pages = cls.db.get_mails_count()
 
@@ -483,6 +638,107 @@ class Mail(Menu):
         ikb.insert(InlineKeyboardButton('Отправить', callback_data='send_mail'))
 
         return ikb
+
+    @classmethod
+    async def get_mails(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        data = callback.data.split()
+
+        if 'prev' in callback.data:
+            page = int(data[1])
+            if page == 1:
+                return await callback.answer()
+            await cls.db.move_selected_mail(False)
+            page -= 1
+        elif 'next' in callback.data:
+            page = int(data[1])
+            total_pages = int(data[2])
+            if page == total_pages:
+                return await callback.answer()
+            await cls.db.move_selected_mail(True)
+            page += 1
+        try:
+            mail_id, mail_text = await cls.db.get_mail()
+
+            await bot.edit_message_text(
+                text=mail_text,
+                chat_id=user_id,
+                message_id=msg_id,
+                reply_markup=await cls.my_mails(mail_id)
+            )
+        except TypeError:
+            await callback.answer('Список рассылок пуст')
+
+    @classmethod
+    async def create(cls, user_id: int, bot: Bot):
+        await StateMail.new_mail.set()
+        await bot.send_message(
+            chat_id=user_id,
+            text='Введите текст рассылки',
+            reply_markup=ikb_cancel
+        )
+
+    @classmethod
+    async def delete(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        if 'yes' in callback.data:
+            state = await cls.db.delete_mail()
+            await callback.answer('Рассылка удалена', show_alert=True)
+            if state:
+                mail_id, mail_text = await cls.db.get_mail()
+
+                await bot.edit_message_text(
+                    text=mail_text,
+                    chat_id=user_id,
+                    message_id=msg_id,
+                    reply_markup=await cls.my_mails(mail_id)
+                )
+            else:
+                await cls.show_page(user_id, msg_id, bot)
+
+        elif 'no' in callback.data:
+            await callback.answer('Удаление отменено', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text='Удалить рассылку?',
+                reply_markup=ikb_del_mail
+            )
+
+    @classmethod
+    async def send(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        if 'yes' in callback.data:
+            users = await cls.db.get_all_user_id()
+            _, mail_text = await cls.db.get_mail()
+            if users:
+                for user in users:
+                    await bot.send_message(
+                        chat_id=user,
+                        text=mail_text
+                    )
+
+                word = 'клиенту' if str(len(users))[-1] == '1' else 'клиентам'
+
+                await callback.answer(
+                    f'Рассылка успешно отправлена {len(users)} {word}',
+                    show_alert=True
+                )
+
+                await bot.delete_message(user_id, msg_id)
+            else:
+                await callback.answer('Список клиентов пуст', show_alert=True)
+                await bot.delete_message(user_id, msg_id)
+
+        elif 'no' in callback.data:
+            await callback.answer('Отправление отменено', show_alert=True)
+            await bot.delete_message(user_id, msg_id)
+        else:
+            mail_text = await cls.db.get_mail()
+
+            await bot.send_message(
+                chat_id=user_id,
+                text=SEND_MAIL + mail_text[1],
+                reply_markup=ikb_send_mail
+            )
 
 
 class MyOrders(Menu):

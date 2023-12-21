@@ -1,5 +1,3 @@
-import os
-
 import aiogram.utils.exceptions
 from aiogram.dispatcher import FSMContext
 
@@ -7,14 +5,15 @@ from messages import *
 from functions import *
 from markups import *
 from states import *
-from menus import Basket, Product, Employees, EditMenu, Settings, Mail, MyOrders
+from menus import Basket, Product, Employees, EditMenu, Settings, Mail, MyOrders, Admin
 
 
 @logger.catch
 async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot: Bot):
-    # BASKET PAGE CALLBACKS
-    # =============================================================================================
     try:
+        # BASKET PAGE CALLBACKS
+        # =========================================================================================
+
         if callback.data == 'basket':
             await Basket.show_page(user_id, callback, bot)
 
@@ -54,240 +53,64 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
         # =========================================================================================
 
         if callback.data == 'admin_employees':
-            password = await get_json('data.json')
-
-            await bot.edit_message_text(
-                text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
-                                      f'<b>{password["employee_password"]}</b>',
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Employees.get_page()
-            )
+            await Employees.show_page(user_id, msg_id, bot)
 
         if callback.data == 'admin_menu':
-            await bot.edit_message_text(
-                text=EDIT_MENU_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await EditMenu.get_page(False)
-            )
+            await EditMenu.show_page(user_id, msg_id, bot)
 
         if callback.data == 'admin_xlsx':
-            doc = await get_xlsx()
-            await bot.send_document(user_id, open(doc, 'rb'))
-            for file in os.listdir():
-                if '.xlsx' in file:
-                    os.remove(file)
+            await Admin.get_xlsx(user_id, bot)
 
         if callback.data == 'admin_error':
-            await callback.message.answer(
-                text=ERROR_TITLE,
-                reply_markup=ikb_cancel
-            )
-            await ErrorHandler.get_error.set()
+            await Admin.get_error(callback)
 
         if callback.data == 'admin_settings':
-            await bot.edit_message_text(
-                text=SETTINGS_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Settings.get_page()
-            )
+            await Settings.show_page(user_id, msg_id, bot)
 
         if 'state_bot' in callback.data:
-            if 'off' in callback.data:
-                await set_json('data.json', {'is_bot_enabled': 0})
-                await callback.answer('Приём заказов остановлен', show_alert=True)
-            else:
-                await set_json('data.json', {'is_bot_enabled': 1})
-                await callback.answer('Приём заказов запущен', show_alert=True)
-
-            await bot.edit_message_reply_markup(
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Settings.get_page()
-            )
+            await Settings.switch_state(user_id, msg_id, callback, bot)
 
         if callback.data == 'admin_stats':
-            await bot.edit_message_text(
-                text=await admin_stats(),
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=ikb_admin
-            )
+            await Admin.show_page(user_id, msg_id, bot, show_stats=True)
 
         if callback.data == 'change_main_image':
-            await bot.edit_message_text(
-                text='Отправьте изображение:',
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=ikb_cancel
-            )
-            await ChangeMainImage.get_main_image.set()
-            await callback.answer('Редактирование изображения')
+            await Settings.change_main_image(user_id, msg_id, callback, bot)
 
         # MAILS CALLBACKS
         # =========================================================================================
 
         if callback.data == 'admin_mails':
-            await bot.edit_message_text(
-                text=MAILS_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Mail.get_page()
-            )
+            await Mail.show_page(user_id, msg_id, bot)
 
         if 'my_mails' in callback.data:
-            data = callback.data.split()
-            if 'prev' in callback.data:
-                page = int(data[1])
-                if page == 1:
-                    return await callback.answer()
-                await OrderDB.move_selected_mail(False)
-                page -= 1
-            elif 'next' in callback.data:
-                page = int(data[1])
-                total_pages = int(data[2])
-                if page == total_pages:
-                    return await callback.answer()
-                await OrderDB.move_selected_mail(True)
-                page += 1
-            try:
-                mail_id, mail_text = await OrderDB.get_mail()
-
-                await bot.edit_message_text(
-                    text=mail_text,
-                    chat_id=user_id,
-                    message_id=msg_id,
-                    reply_markup=await Mail.my_mails(mail_id)
-                )
-            except TypeError:
-                await callback.answer('Список рассылок пуст')
+            await Mail.get_mails(user_id, msg_id, callback, bot)
 
         if callback.data == 'create_mail':
-            await StateMail.new_mail.set()
-            await bot.send_message(
-                chat_id=user_id,
-                text='Введите текст рассылки',
-                reply_markup=ikb_cancel
-            )
+            await Mail.create(user_id, bot)
 
         if callback.data == 'mails_help':
-            await bot.edit_message_text(
-                text=MAILS_TITLE + MAILS_HELP,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Mail.get_page()
-            )
+            await Mail.show_page(user_id, msg_id, bot, show_help=True)
 
         if 'delete_mail' in callback.data:
-            if 'yes' in callback.data:
-                state = await OrderDB.delete_mail()
-                await callback.answer('Рассылка удалена', show_alert=True)
-                if state:
-                    mail_id, mail_text = await OrderDB.get_mail()
-
-                    await bot.edit_message_text(
-                        text=mail_text,
-                        chat_id=user_id,
-                        message_id=msg_id,
-                        reply_markup=await Mail.my_mails(mail_id)
-                    )
-                else:
-                    await bot.edit_message_text(
-                        text=MAILS_TITLE,
-                        chat_id=user_id,
-                        message_id=msg_id,
-                        reply_markup=await Mail.get_page()
-                    )
-            elif 'no' in callback.data:
-                await callback.answer('Удаление отменено', show_alert=True)
-                await bot.delete_message(user_id, msg_id)
-            else:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text='Удалить рассылку?',
-                    reply_markup=ikb_del_mail
-                )
+            await Mail.delete(user_id, msg_id, callback, bot)
 
         if 'send_mail' in callback.data:
-            if 'yes' in callback.data:
-                users = await OrderDB.get_all_user_id()
-                _, mail_text = await OrderDB.get_mail()
-                if users:
-                    for user in users:
-                        await bot.send_message(
-                            chat_id=user,
-                            text=mail_text
-                        )
-
-                    word = 'клиенту' if str(len(users))[-1] == '1' else 'клиентам'
-
-                    await callback.answer(
-                        f'Рассылка успешно отправлена {len(users)} {word}',
-                        show_alert=True
-                    )
-
-                    await bot.delete_message(user_id, msg_id)
-                else:
-                    await callback.answer('Список клиентов пуст', show_alert=True)
-                    await bot.delete_message(user_id, msg_id)
-
-            elif 'no' in callback.data:
-                await callback.answer('Отправление отменено', show_alert=True)
-                await bot.delete_message(user_id, msg_id)
-            else:
-                mail_text = await OrderDB.get_mail()
-
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=SEND_MAIL + mail_text[1],
-                    reply_markup=ikb_send_mail
-                )
+            await Mail.send(user_id, msg_id, callback, bot)
 
         if callback.data == 'back':
-            await bot.edit_message_text(
-                text=ADMIN_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=ikb_admin
-            )
+            await Admin.show_page(user_id, msg_id, bot)
 
-        # EDIT EMPLOYEES CALLBACKS
+        # EMPLOYEES CALLBACKS
         # =========================================================================================
 
-        if callback.data == 'change_password':
-            pw = await update_password()
+        if callback.data == 'update_password':
+            await Employees.show_page(user_id, msg_id, bot, update_pw=True)
 
-            await bot.edit_message_text(
-                text=EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>',
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Employees.get_page()
-            )
-
-        if 'remove_employee' in callback.data:
-            employee_id = int(callback.data[16:])
-            await OrderDB.delete_employee(employee_id)
-
-            await bot.edit_message_text(
-                text=EMPLOYEE_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Employees.get_page()
-            )
+        if 'delete_employee' in callback.data:
+            await Employees.delete(user_id, msg_id, callback, bot)
 
         if callback.data == 'employee_help':
-            password = await get_json('data.json')
-
-            await bot.edit_message_text(
-                text=EMPLOYEE_TITLE + f'\nПароль для персонала: '
-                                      f'<b>{password["employee_password"]}</b>\n'
-                                      f'\n' + EMPLOYEE_HELP,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await Employees.get_page()
-            )
+            await Employees.show_page(user_id, msg_id, bot, show_help=True)
 
         # EDIT MENU CALLBACKS
         # =========================================================================================

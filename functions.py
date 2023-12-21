@@ -4,12 +4,9 @@ import string
 import hashlib
 import datetime
 
-
 from aiogram import types, Bot
 from asyncio import sleep
 from aiofile import async_open
-from openpyxl import Workbook
-from openpyxl.styles import Alignment
 
 from order_db import OrderDB
 from config import TIME_ZONE, logger
@@ -144,40 +141,6 @@ async def error_to_db(message: types.Message, bot):
         chat_id=5765637028,
         text=message.from_user.full_name + '\n' + message.text
     )
-
-
-@logger.catch
-async def get_xlsx() -> str:
-    wb = Workbook()
-    ws = wb.active
-    ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
-
-    table = ['A', 'B', 'C', 'D', 'E']
-
-    for ch in table:
-        cell = ws[f'{ch}1']
-        cell.style = 'Accent1'
-        cell.alignment = Alignment(horizontal='center')
-
-    archive = await OrderDB.get_all_from_archive()
-
-    for i, order in enumerate(archive):
-        ws.append([order[i] for i in [1, 4, 3, 6, 7]])
-        ws[f'C{i + 2}'].number_format = '#,## ₽'
-        ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')
-        ws[f'E{i + 2}'].alignment = Alignment(horizontal='right')
-
-    ws.column_dimensions["A"].width = 15
-    ws.column_dimensions["B"].width = 60
-    ws.column_dimensions["C"].width = 12
-    ws.column_dimensions["D"].width = 13
-    ws.column_dimensions["E"].width = 10
-
-    now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
-    now = now.strftime('%d.%m.%Y') + '.xlsx'
-    wb.save(now)
-
-    return now
 
 
 @logger.catch

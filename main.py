@@ -11,7 +11,7 @@ from aiogram.types.message import ContentType
 import callbacks
 import commands
 
-from menus import Basket, Product, EditMenu, Mail
+from menus import Basket, Product, EditMenu, Mail, Admin
 from config import API_TOKEN
 from functions import *
 from markups import *
@@ -116,7 +116,7 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
     if message.text == '123':
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
         await message.answer('Успешная авторизация', reply_markup=rkb_admin)
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
         await state.finish()
     await message.delete()
 
@@ -305,7 +305,7 @@ async def change_main_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
         await OrderDB.set_url('main_image', message.text)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
