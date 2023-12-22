@@ -152,13 +152,13 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
     await callback.answer()
 
 
-async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMContext, product):
+async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMContext):
     if callback.data == 'cancel':
         await callback.answer('Ввод отменён', show_alert=True)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     if callback.data == 'without_image':
-        product_list = await product.get_product_list()
+        product_list = await EditMenu.get_product_list()
         if len(product_list) == 3:
             product_list.append(None)
         await OrderDB.add_product(product_list)

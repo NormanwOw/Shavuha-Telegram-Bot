@@ -35,7 +35,7 @@ class Price(Base):
     product = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     description = Column(String, nullable=False)
-    url = Column(String, nullable=False)
+    url = Column(String)
 
 
 class Url(Base):

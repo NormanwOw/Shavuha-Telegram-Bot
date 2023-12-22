@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from aiogram.types import CallbackQuery, LabeledPrice
 import aiogram.utils.exceptions
 from aiogram import Bot
+from aiogram.dispatcher import FSMContext
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 
@@ -531,6 +532,8 @@ class Employees(Menu):
 
 class EditMenu(Menu):
 
+    product_list = []
+
     @classmethod
     async def get_page(cls, del_product: bool, page: int = 1) -> InlineKeyboardMarkup:
         rows = 6
@@ -665,6 +668,77 @@ class EditMenu(Menu):
 
         elif 'prev' in callback.data and page != 1:
             await cls.show_page(user_id, msg_id, bot, del_product=del_product, page=page - 1)
+
+    @classmethod
+    async def add_image(cls, message: types.Message, bot: Bot, state: FSMContext):
+        try:
+            await bot.send_photo(message.from_user.id, message.text)
+
+            await bot.send_message(
+                message.from_user.id,
+                '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
+                reply_markup=await cls.get_page(False)
+            )
+
+            cls.product_list.append(message.text)
+            await OrderDB.add_product(cls.product_list)
+            cls.product_list.clear()
+            await state.finish()
+        except aiogram.utils.exceptions.BadRequest:
+
+            await bot.send_message(
+                message.from_user.id,
+                'Неверная ссылка, изображение не найдено',
+                reply_markup=ikb_cancel
+            )
+
+        await message.delete()
+
+    @classmethod
+    async def add_desc(cls, message: types.Message, bot: Bot):
+        cls.product_list.append(message.text)
+
+        await bot.send_message(
+            message.from_user.id,
+            'Отправьте изображение:',
+            reply_markup=ikb_add_image
+        )
+
+        await AddProduct.get_image.set()
+        await message.delete()
+
+    @classmethod
+    async def add_price(cls, message: types.Message, bot: Bot):
+        try:
+            if int(message.text) >= 0:
+                await bot.send_message(
+                    message.from_user.id,
+                    'Введите состав:',
+                    reply_markup=ikb_cancel
+                )
+
+                cls.product_list.append(int(message.text))
+                await AddProduct.get_desc.set()
+        except ValueError:
+            pass
+        await message.delete()
+
+    @classmethod
+    async def add_name(cls, message: types.Message, bot: Bot):
+        if len(message.text) > 1:
+            await bot.send_message(
+                message.from_user.id,
+                'Введите стоимость товара:',
+                reply_markup=ikb_cancel
+            )
+
+            cls.product_list.append(message.text)
+            await AddProduct.get_price.set()
+        await message.delete()
+
+    @classmethod
+    async def get_product_list(cls):
+        return cls.product_list
 
 
 class Settings(Menu):

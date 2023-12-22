@@ -24,22 +24,6 @@ storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
 
-class ProductList:
-    product_list = []
-
-    @classmethod
-    async def append_product_list(cls, item):
-        cls.product_list.append(item)
-
-    @classmethod
-    async def get_product_list(cls):
-        return cls.product_list
-
-    @classmethod
-    async def clear_product_list(cls):
-        cls.product_list.clear()
-
-
 @dp.message_handler(commands=['start', 'new'])
 async def start_command(message: types.Message):
     await commands.start_command(bot, message)
@@ -211,16 +195,7 @@ async def add_product_name(message: types.Message):
     Add new product
     State of getting product name
     """
-    if len(message.text) > 1:
-        await bot.send_message(
-            message.from_user.id,
-            'Введите стоимость товара:',
-            reply_markup=ikb_cancel
-        )
-
-        await ProductList.append_product_list(message.text)
-        await AddProduct.get_price.set()
-    await message.delete()
+    await EditMenu.add_name(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_price)
@@ -229,19 +204,7 @@ async def add_product_price(message: types.Message):
     Add new product
     State of getting product price
     """
-    try:
-        if int(message.text) >= 0:
-            await bot.send_message(
-                message.from_user.id,
-                'Введите состав:',
-                reply_markup=ikb_cancel
-            )
-
-            await ProductList.append_product_list(int(message.text))
-            await AddProduct.get_desc.set()
-    except ValueError:
-        pass
-    await message.delete()
+    await EditMenu.add_price(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_desc)
@@ -250,16 +213,7 @@ async def add_product_desc(message: types.Message):
     Add new product
     State of getting product description
     """
-    await ProductList.append_product_list(message.text)
-
-    await bot.send_message(
-        message.from_user.id,
-        'Отправьте изображение:',
-        reply_markup=ikb_add_image
-    )
-
-    await AddProduct.get_image.set()
-    await message.delete()
+    await EditMenu.add_desc(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_image)
@@ -268,28 +222,7 @@ async def add_product_image(message: types.Message, state: FSMContext):
     Add new product
     State of getting product image
     """
-    try:
-        await bot.send_photo(message.from_user.id, message.text)
-
-        await bot.send_message(
-            message.from_user.id,
-            '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await EditMenu.get_page(False)
-        )
-
-        await ProductList.append_product_list(message.text)
-        await OrderDB.add_product(await ProductList.get_product_list())
-        await ProductList.clear_product_list()
-        await state.finish()
-    except aiogram.utils.exceptions.BadRequest:
-
-        await bot.send_message(
-            message.from_user.id,
-            'Неверная ссылка, изображение не найдено',
-            reply_markup=ikb_cancel
-        )
-
-    await message.delete()
+    await EditMenu.add_image(message, bot, state)
 
 
 @dp.message_handler(state=ChangeMainImage.get_main_image)
@@ -394,7 +327,7 @@ async def inline_h(query: types.InlineQuery):
 )
 async def cancel_callback(callback: types.CallbackQuery, state: FSMContext):
     """Add Cancel button for message"""
-    await callbacks.cancel_callback(callback, bot, state, ProductList)
+    await callbacks.cancel_callback(callback, bot, state)
 
 
 @dp.callback_query_handler()
