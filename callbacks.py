@@ -1,10 +1,9 @@
 import aiogram.utils.exceptions
 from aiogram.dispatcher import FSMContext
+from aiogram import Bot
 
 from messages import *
 from functions import *
-from markups import *
-from states import *
 from menus import Basket, Product, Employees, EditMenu, Settings, Mail, MyOrders, Admin
 
 
@@ -15,7 +14,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
         # =========================================================================================
 
         if callback.data == 'basket':
-            await Basket.show_page(user_id, callback, bot)
+            await Basket.show_page(user_id, msg_id, callback, bot, check_basket=True)
 
         # SET ORDER TIME PAGE
         if 'set_time' in callback.data:
@@ -36,7 +35,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await Basket.show_time_page(user_id, msg_id, callback, bot)
 
         if 'back_to_basket' in callback.data:
-            await Basket.back_to_page(user_id, msg_id, callback, bot)
+            await Basket.show_page(user_id, msg_id, callback, bot)
 
         # ORDER PAGE CALLBACKS
         # =========================================================================================
@@ -116,125 +115,37 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
         # =========================================================================================
 
         if 'change_desc' in callback.data:
-            product = callback.data[12:]
-            await ChangeProduct.set_product(product)
-            await ChangeProduct.get_new_desc.set()
-
-            await bot.send_message(
-                chat_id=user_id,
-                text='Введите описание товара (состав):',
-                reply_markup=ikb_cancel
-            )
-
-            await callback.answer('Редактирование описания')
+            await EditMenu.change_desc(user_id, callback, bot)
 
         if 'change_image' in callback.data:
-            product = callback.data[13:]
-            await ChangeProduct.set_product(product)
-            await ChangeProduct.get_new_product_image.set()
-
-            await bot.send_message(
-                chat_id=user_id,
-                text='Отправьте ссылку на изображение:',
-                reply_markup=ikb_cancel
-            )
-
-            await callback.answer('Редактирование изображения')
+            await EditMenu.change_image(user_id, callback, bot)
 
         if 'change_price' in callback.data:
-            product = callback.data[13:]
-            await ChangeProduct.set_product(product)
-            await ChangeProduct.get_new_price.set()
+            await EditMenu.change_price(user_id, callback, bot)
 
-            await bot.send_message(
-                chat_id=user_id,
-                text='Введите стоимость товара:',
-                reply_markup=ikb_cancel
-            )
+        if callback.data == 'add_product_page':
+            await EditMenu.add_product(user_id, callback, bot)
 
-            await callback.answer('Редактирование цены')
+        if callback.data == 'del_product_page':
+            await EditMenu.show_page(user_id, msg_id, bot, del_product=True)
 
-        if callback.data == 'menu_add':
-            await bot.send_message(
-                chat_id=user_id,
-                text='Введите название товара:',
-                reply_markup=ikb_cancel
-            )
-
-            await AddProduct.get_name.set()
-            await callback.answer('Добавление товара')
-
-        if callback.data == 'menu_delete':
-            await bot.edit_message_text(
-                text=EDIT_MENU_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await EditMenu.get_page(True)
-            )
+        if 'delete_product' in callback.data:
+            await EditMenu.delete_product(user_id, msg_id, callback, bot)
 
         if callback.data == 'menu_help':
-            await bot.edit_message_text(
-                text=EDIT_MENU_TITLE + '\n' + MENU_HELP,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await EditMenu.get_page(False)
-            )
+            await EditMenu.show_page(user_id, msg_id, bot, show_help=True)
 
         if 'menu_page' in callback.data:
-            del_product = True if 'True' in callback.data else False
-            data = callback.data.split()
-            page = int(data[1])
-            next_page_len = int(data[2])
-
-            if 'next' in callback.data and next_page_len > 0:
-                await bot.edit_message_text(
-                    text=EDIT_MENU_TITLE,
-                    chat_id=user_id,
-                    message_id=msg_id,
-                    reply_markup=await EditMenu.get_page(del_product, page + 1)
-                )
-
-            elif 'prev' in callback.data and page != 1:
-                await bot.edit_message_text(
-                    text=EDIT_MENU_TITLE,
-                    chat_id=user_id,
-                    message_id=msg_id,
-                    reply_markup=await EditMenu.get_page(del_product, page - 1)
-                )
-
-        if 'remove_product' in callback.data:
-            product = callback.data[15:]
-            await OrderDB.delete_product(product)
-
-            await bot.edit_message_text(
-                text=EDIT_MENU_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await EditMenu.get_page(True)
-            )
-            await callback.answer(f'Товар удалён', show_alert=True)
+            await EditMenu.pagination(user_id, msg_id, callback, bot)
 
         if callback.data == 'back_to_edit_menu':
-            await bot.edit_message_text(
-                text=EDIT_MENU_TITLE,
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await EditMenu.get_page(False)
-            )
+            await EditMenu.show_page(user_id, msg_id, bot)
 
         # MY ORDERS CALLBACKS
         # =========================================================================================
 
         if 'my_orders' in callback.data:
-            data = callback.data.split()
-            page = int(data[1])
-            if 'prev' in callback.data:
-                if page != 1:
-                    await my_orders(callback, bot, user_id, msg_id, page - 1)
-            else:
-                total_pages = int(data[2])
-                if page != total_pages:
-                    await my_orders(callback, bot, user_id, msg_id, page + 1)
+            await MyOrders.pagination(user_id, msg_id, callback, bot)
 
     except aiogram.utils.exceptions.MessageNotModified:
         pass
@@ -247,7 +158,7 @@ async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMCon
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     if callback.data == 'without_image':
-        product_list = product.get_product_list()
+        product_list = await product.get_product_list()
         if len(product_list) == 3:
             product_list.append(None)
         await OrderDB.add_product(product_list)
@@ -260,52 +171,3 @@ async def cancel_callback(callback: types.CallbackQuery, bot: Bot, state: FSMCon
 
     await state.finish()
     await callback.answer()
-
-
-async def my_orders(message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0):
-    user_orders = await OrderDB.get_user_orders(message.from_user.id)
-    user_orders_count = len(user_orders)
-
-    if user_orders_count != 0:
-        if user_orders_count > 5:
-            last_page = user_orders_count % 5
-            order_pages = user_orders_count // 5
-            page = 0 if last_page == 0 else 1
-            total_pages = int(order_pages) + page
-            if last_page == 0:
-                last_page = 5
-
-            if selected_page == 0:
-                await message.answer(
-                    text=await user_orders_page(
-                        last_page, selected_page, user_orders_count, user_orders
-                    ),
-                    reply_markup=await MyOrders.get_page(total_pages, total_pages)
-                )
-            else:
-                await bot.edit_message_text(
-                    text=await user_orders_page(
-                        last_page, selected_page, user_orders_count, user_orders
-                    ),
-                    chat_id=user_id,
-                    message_id=msg_id,
-                    reply_markup=await MyOrders.get_page(selected_page, total_pages)
-                )
-        else:
-            if selected_page == 0:
-                await message.answer(await user_orders_page(
-                    user_orders_count, selected_page, user_orders_count, user_orders
-                )
-                                     )
-            else:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=await user_orders_page(
-                        user_orders_count, selected_page, user_orders_count, user_orders
-                    )
-                )
-    else:
-        await bot.send_message(
-            chat_id=user_id,
-            text='Список заказов пуст'
-        )

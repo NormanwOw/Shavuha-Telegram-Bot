@@ -4,7 +4,7 @@ import string
 import hashlib
 import datetime
 
-from aiogram import types, Bot
+from aiogram import types
 from asyncio import sleep
 from aiofile import async_open
 
@@ -103,29 +103,6 @@ async def get_24h_orders_list(message):
 
 
 @logger.catch
-async def send_order_to_employees(comment: str, order_list: str, bot: Bot, order_number: int,
-                                  user_time_str: str, price: int, date: str, time: str):
-    if comment is None:
-        comm = ''
-    else:
-        comm = f'\n\n✏ Комментарий: {comment}'
-
-    order = json.loads(order_list.replace('\'', '"'))
-    order_str = ''
-    for employee in await OrderDB.get_id_by_status('Повар'):
-        for product in order:
-            order_str += f'\n ▫️ {product}: {order[product]}'
-
-        await bot.send_message(
-            chat_id=employee,
-            text=f'<b>Заказ №<u>{order_number}</u></b>'+user_time_str+order_str+f'\n'
-                 f'__________\n'
-                 f'{price}₽'+comm+f'\n\n'
-                 f'{date} {time}'
-        )
-
-
-@logger.catch
 async def error_to_db(message: types.Message, bot):
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = now.strftime('%d.%m.%Y')
@@ -141,30 +118,3 @@ async def error_to_db(message: types.Message, bot):
         chat_id=5765637028,
         text=message.from_user.full_name + '\n' + message.text
     )
-
-
-@logger.catch
-async def user_orders_page(count: int, selected_page: int, user_orders_count: int,
-                           user_orders: list) -> str:
-    num = 1
-    answer = ''
-    rows = 5
-
-    if selected_page == 0:
-        or_num = [_ for _ in range(1, user_orders_count + 1)][count * -1:]
-        for order_number, price, order_list, date, time in user_orders[count * -1:]:
-            answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                      f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
-            num += 1
-    else:
-        end = selected_page * rows
-        start = end - rows
-        or_num = [_ for _ in range(1, user_orders_count + 1)][start:end]
-        for order_number, price, order_list, date, time in user_orders[start:end]:
-            answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
-                      f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
-            num += 1
-
-    await sleep(0.01)
-
-    return answer

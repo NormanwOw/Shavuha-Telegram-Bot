@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import aiogram.utils.exceptions
-from aiogram import Dispatcher, executor
+from aiogram import Dispatcher, executor, Bot
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
@@ -11,7 +11,7 @@ from aiogram.types.message import ContentType
 import callbacks
 import commands
 
-from menus import Basket, Product, EditMenu, Mail, Admin
+from menus import Basket, Product, EditMenu, Mail, Admin, Employees, MyOrders
 from config import API_TOKEN
 from functions import *
 from markups import *
@@ -28,15 +28,15 @@ class ProductList:
     product_list = []
 
     @classmethod
-    def append_product_list(cls, item):
+    async def append_product_list(cls, item):
         cls.product_list.append(item)
 
     @classmethod
-    def get_product_list(cls):
+    async def get_product_list(cls):
         return cls.product_list
 
     @classmethod
-    def clear_product_list(cls):
+    async def clear_product_list(cls):
         cls.product_list.clear()
 
 
@@ -63,7 +63,7 @@ async def my_orders(message: types.Message):
     User handler
     Show order list
     """
-    await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
+    await MyOrders.show_page(message, bot, message.from_user.id, message.message_id)
     await bot.delete_message(message.from_user.id, message.message_id)
 
 
@@ -218,7 +218,7 @@ async def add_product_name(message: types.Message):
             reply_markup=ikb_cancel
         )
 
-        ProductList.append_product_list(message.text)
+        await ProductList.append_product_list(message.text)
         await AddProduct.get_price.set()
     await message.delete()
 
@@ -237,7 +237,7 @@ async def add_product_price(message: types.Message):
                 reply_markup=ikb_cancel
             )
 
-            ProductList.append_product_list(int(message.text))
+            await ProductList.append_product_list(int(message.text))
             await AddProduct.get_desc.set()
     except ValueError:
         pass
@@ -250,7 +250,7 @@ async def add_product_desc(message: types.Message):
     Add new product
     State of getting product description
     """
-    ProductList.append_product_list(message.text)
+    await ProductList.append_product_list(message.text)
 
     await bot.send_message(
         message.from_user.id,
@@ -277,9 +277,9 @@ async def add_product_image(message: types.Message, state: FSMContext):
             reply_markup=await EditMenu.get_page(False)
         )
 
-        ProductList.append_product_list(message.text)
-        await OrderDB.add_product(ProductList.get_product_list())
-        ProductList.clear_product_list()
+        await ProductList.append_product_list(message.text)
+        await OrderDB.add_product(await ProductList.get_product_list())
+        await ProductList.clear_product_list()
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
 
@@ -471,18 +471,18 @@ async def successful_payment(message: types.Message):
     )
 
     print(
-        {'user_id': message.from_user.id,
-         'order_number': order_number,
-         'order_list': order_list,
-         'price': str(price) + cur,
-         'order_user_time': order_user_time,
-         'comment': comment,
-         'date': date,
-         'time': time
+        {"user_id": message.from_user.id,
+         "order_number": order_number,
+         "order_list": order_list,
+         "price": str(price) + cur,
+         "order_user_time": order_user_time,
+         "comment": comment,
+         "date": date,
+         "time": time
          }
     )
 
-    await send_order_to_employees(
+    await Employees.send_order_to_employees(
         comment, payload, bot, order_number, user_time_str, price, date, time
     )
 

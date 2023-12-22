@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from aiogram.types import CallbackQuery, LabeledPrice
 import aiogram.utils.exceptions
+from aiogram import Bot
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 
@@ -51,26 +52,26 @@ class Basket(Menu):
         return ikb
 
     @classmethod
-    async def back_to_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
-        if 'del' in callback.data:
-            await OrderDB.delete_comment(user_id)
-            await callback.answer('Комментарий удалён')
-
-        await bot.edit_message_text(
-            text=await Basket.get_title(user_id),
-            chat_id=user_id,
-            message_id=msg_id,
-            reply_markup=await Basket.get_page(user_id)
-        )
-
-    @classmethod
-    async def show_page(cls, user_id: int, callback: CallbackQuery, bot: Bot):
-        if await cls.db.get_order_by_id(user_id) is None:
-            await callback.answer('Корзина пуста')
+    async def show_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot,
+                        check_basket: bool = False):
+        if check_basket:
+            if await cls.db.get_order_by_id(user_id) is None:
+                await callback.answer('Корзина пуста')
+            else:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=await cls.get_title(user_id),
+                    reply_markup=await cls.get_page(user_id)
+                )
         else:
-            await bot.send_message(
-                chat_id=user_id,
+            if 'del' in callback.data:
+                await cls.db.delete_comment(user_id)
+                await callback.answer('Комментарий удалён')
+
+            await bot.edit_message_text(
                 text=await cls.get_title(user_id),
+                chat_id=user_id,
+                message_id=msg_id,
                 reply_markup=await cls.get_page(user_id)
             )
 
@@ -185,26 +186,14 @@ class Basket(Menu):
                 return
 
             await cls.db.set_order_user_time(user_id, None)
-
-            await bot.edit_message_text(
-                text=await cls.get_title(user_id),
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await cls.get_page(user_id)
-            )
+            await cls.show_page(user_id, msg_id, callback, bot)
 
             await callback.answer('Точное время отменено')
         else:
             time = callback.data[9:]
             await callback.answer(time)
             await cls.db.set_order_user_time(user_id, time)
-
-            await bot.edit_message_text(
-                text=await cls.get_title(user_id),
-                chat_id=user_id,
-                message_id=msg_id,
-                reply_markup=await cls.get_page(user_id)
-            )
+            await cls.show_page(user_id, msg_id, callback, bot)
 
     @classmethod
     async def get_comment_title(cls, user_id: int) -> str:
@@ -250,16 +239,16 @@ class Basket(Menu):
             count = 1
         else:
             count = -1
-        await OrderDB.add_order(user_id, {product: count})
+        await cls.db.add_order(user_id, {product: count})
 
-        if await OrderDB.get_products_count(user_id) == 0:
-            await OrderDB.clear_basket(user_id)
+        if await cls.db.get_products_count(user_id) == 0:
+            await cls.db.clear_basket(user_id)
 
             await bot.edit_message_text(
                 text=EMPTY_BASKET,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await Basket.get_page(user_id)
+                reply_markup=await cls.get_page(user_id)
             )
 
             return
@@ -485,6 +474,31 @@ class Employees(Menu):
         await cls.db.delete_employee(employee_id)
         await cls.show_page(user_id, msg_id, bot)
 
+    @classmethod
+    async def send_order_to_employees(
+            cls, comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
+            price: int, date: str, time: str
+    ):
+
+        if comment is None:
+            comm = ''
+        else:
+            comm = f'\n\n✏ Комментарий: {comment}'
+
+        order = json.loads(order_list.replace('\'', '"'))
+        order_str = ''
+        for employee in await cls.db.get_id_by_status('Повар'):
+            for product in order:
+                order_str += f'\n ▫️ {product}: {order[product]}'
+
+            await bot.send_message(
+                chat_id=employee,
+                text=f'<b>Заказ №<u>{order_number}</u></b>' + user_time_str + order_str +
+                     f'\n__________\n'
+                     f'{price}₽' + comm + f'\n\n'
+                     f'{date} {time}'
+            )
+
 
 class EditMenu(Menu):
 
@@ -501,7 +515,7 @@ class EditMenu(Menu):
 
         for product, price, desc, url in prices_list_rows:
             if del_product:
-                ikb.add(InlineKeyboardButton('🚫', callback_data='remove_product_' + product))
+                ikb.add(InlineKeyboardButton('🚫', callback_data='delete_product_' + product))
                 ikb.insert(InlineKeyboardButton(product, callback_data='None'))
             else:
                 ikb.add(InlineKeyboardButton('✏ ', callback_data='change_desc_' + product))
@@ -529,21 +543,99 @@ class EditMenu(Menu):
         if del_product:
             ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_edit_menu'))
         else:
-            ikb.add(InlineKeyboardButton('Удалить товар', callback_data='menu_delete'))
-            ikb.insert(InlineKeyboardButton('Добавить товар', callback_data='menu_add'))
+            ikb.add(InlineKeyboardButton('Удалить товар', callback_data='del_product_page'))
+            ikb.insert(InlineKeyboardButton('Добавить товар', callback_data='add_product_page'))
             ikb.add(InlineKeyboardButton('Назад', callback_data='back'))
             ikb.insert(InlineKeyboardButton('Помощь', callback_data='menu_help'))
 
         return ikb
 
     @classmethod
-    async def show_page(cls, user_id: int, msg_id: int, bot: Bot):
+    async def show_page(
+            cls, user_id: int, msg_id: int, bot: Bot, show_help: bool = False,
+            del_product: bool = False, page: int = 1
+    ):
+        msg_help = MENU_HELP if show_help else ''
+
         await bot.edit_message_text(
-            text=EDIT_MENU_TITLE,
+            text=EDIT_MENU_TITLE + msg_help,
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page(False)
+            reply_markup=await cls.get_page(del_product, page)
         )
+
+    @classmethod
+    async def change_desc(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[12:]
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_desc.set()
+
+        await bot.send_message(
+            chat_id=user_id,
+            text='Введите описание товара (состав):',
+            reply_markup=ikb_cancel
+        )
+
+        await callback.answer('Редактирование описания')
+
+    @classmethod
+    async def change_image(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[13:]
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_product_image.set()
+
+        await bot.send_message(
+            chat_id=user_id,
+            text='Отправьте ссылку на изображение:',
+            reply_markup=ikb_cancel
+        )
+
+        await callback.answer('Редактирование изображения')
+
+    @classmethod
+    async def change_price(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[13:]
+        await ChangeProduct.set_product(product)
+        await ChangeProduct.get_new_price.set()
+
+        await bot.send_message(
+            chat_id=user_id,
+            text='Введите стоимость товара:',
+            reply_markup=ikb_cancel
+        )
+
+        await callback.answer('Редактирование цены')
+
+    @classmethod
+    async def add_product(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+        await bot.send_message(
+            chat_id=user_id,
+            text='Введите название товара:',
+            reply_markup=ikb_cancel
+        )
+
+        await AddProduct.get_name.set()
+        await callback.answer('Добавление товара')
+
+    @classmethod
+    async def delete_product(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        product = callback.data[15:]
+        await cls.db.delete_product(product)
+        await cls.show_page(user_id, msg_id, bot)
+        await callback.answer(f'Товар удалён', show_alert=True)
+
+    @classmethod
+    async def pagination(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        del_product = True if 'True' in callback.data else False
+        data = callback.data.split()
+        page = int(data[1])
+        next_page_len = int(data[2])
+
+        if 'next' in callback.data and next_page_len > 0:
+            await cls.show_page(user_id, msg_id, bot, del_product=del_product, page=page + 1)
+
+        elif 'prev' in callback.data and page != 1:
+            await cls.show_page(user_id, msg_id, bot, del_product=del_product, page=page - 1)
 
 
 class Settings(Menu):
@@ -744,10 +836,99 @@ class Mail(Menu):
 class MyOrders(Menu):
 
     @staticmethod
-    async def get_page(page: int, pages: int) -> InlineKeyboardMarkup:
+    async def get_page(
+            count: int, selected_page: int, user_orders_count: int, user_orders: list
+    ) -> str:
+
+        num = 1
+        answer = ''
+        rows = 5
+
+        if selected_page == 0:
+            or_num = [_ for _ in range(1, user_orders_count + 1)][count * -1:]
+            for order_number, price, order_list, date, time in user_orders[count * -1:]:
+                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
+                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
+                num += 1
+        else:
+            end = selected_page * rows
+            start = end - rows
+            or_num = [_ for _ in range(1, user_orders_count + 1)][start:end]
+            for order_number, price, order_list, date, time in user_orders[start:end]:
+                answer += f'[{or_num[num - 1]}]  <b>Заказ №<u>{order_number}</u></b>\n' \
+                          f'{order_list} | <b>Оплата: {price}₽</b>\n[{date} {time}]\n\n'
+                num += 1
+
+        await sleep(0.01)
+
+        return answer
+
+    @staticmethod
+    async def get_markup(page: int, pages: int) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup()
         ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))
         ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
         ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_my_orders {page} {pages}'))
 
         return ikb
+
+    @classmethod
+    async def show_page(cls, message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0):
+        user_orders = await cls.db.get_user_orders(message.from_user.id)
+        user_orders_count = len(user_orders)
+
+        if user_orders_count != 0:
+            if user_orders_count > 5:
+                last_page = user_orders_count % 5
+                order_pages = user_orders_count // 5
+                page = 0 if last_page == 0 else 1
+                total_pages = int(order_pages) + page
+                if last_page == 0:
+                    last_page = 5
+
+                if selected_page == 0:
+                    await message.answer(
+                        text=await cls.get_page(
+                            last_page, selected_page, user_orders_count, user_orders
+                        ),
+                        reply_markup=await cls.get_markup(total_pages, total_pages)
+                    )
+                else:
+                    await bot.edit_message_text(
+                        text=await cls.get_page(
+                            last_page, selected_page, user_orders_count, user_orders
+                        ),
+                        chat_id=user_id,
+                        message_id=msg_id,
+                        reply_markup=await cls.get_markup(selected_page, total_pages)
+                    )
+            else:
+                if selected_page == 0:
+                    await message.answer(cls.get_page(
+                        user_orders_count, selected_page, user_orders_count, user_orders
+                    )
+                                         )
+                else:
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=cls.get_page(
+                            user_orders_count, selected_page, user_orders_count, user_orders
+                        )
+                    )
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text='Список заказов пуст'
+            )
+
+    @classmethod
+    async def pagination(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+        data = callback.data.split()
+        page = int(data[1])
+        if 'prev' in callback.data:
+            if page != 1:
+                await cls.show_page(callback, bot, user_id, msg_id, page - 1)
+        else:
+            total_pages = int(data[2])
+            if page != total_pages:
+                await cls.show_page(callback, bot, user_id, msg_id, page + 1)
