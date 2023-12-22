@@ -22,6 +22,11 @@ class Menu(ABC):
     async def get_page(cls, *args):
         pass
 
+    @classmethod
+    @abstractmethod
+    async def show_page(cls, *args):
+        pass
+
 
 class Basket(Menu):
 
@@ -221,11 +226,11 @@ class Basket(Menu):
                 text=await cls.get_comment_title(user_id),
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.comment_page()
+                reply_markup=await cls.get_markup()
             )
 
     @staticmethod
-    async def comment_page() -> InlineKeyboardMarkup:
+    async def get_markup() -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup()
         ikb.add(InlineKeyboardButton('Назад', callback_data='back_to_basket'))
         ikb.insert(InlineKeyboardButton('Удалить', callback_data='del_back_to_basket'))
@@ -256,7 +261,7 @@ class Basket(Menu):
         await bot.edit_message_reply_markup(
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await Basket.get_page(user_id)
+            reply_markup=await cls.get_page(user_id)
         )
 
     @classmethod
@@ -313,6 +318,30 @@ class Product(Menu):
         ikb.insert(InlineKeyboardButton('Меню', switch_inline_query_current_chat='#menu'))
 
         return ikb
+
+    @classmethod
+    async def show_page(cls, message: types.Message, bot: Bot):
+        products = await cls.db.get_prices()
+        for product in products:
+            if message.text == product[0]:
+                try:
+                    await bot.send_photo(
+                        message.from_user.id,
+                        photo=product[3],
+                        caption=f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
+                        reply_markup=await cls.get_page(message.from_user.id, product[0])
+                    )
+
+                except aiogram.utils.exceptions.BadRequest:
+
+                    await bot.send_message(
+                        message.from_user.id,
+                        f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
+                        reply_markup=await cls.get_page(message.from_user.id, product[0])
+                    )
+
+                await cls.db.add_temp(message.from_user.id, product[0])
+        await message.delete()
 
     @classmethod
     async def product_counter(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
@@ -719,7 +748,7 @@ class Mail(Menu):
 
     @classmethod
     async def my_mails(cls, page: int) -> InlineKeyboardMarkup:
-        pages = cls.db.get_mails_count()
+        pages = await cls.db.get_mails_count()
 
         ikb = InlineKeyboardMarkup()
         ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_mails {page} {pages}'))
@@ -750,7 +779,6 @@ class Mail(Menu):
             page += 1
         try:
             mail_id, mail_text = await cls.db.get_mail()
-
             await bot.edit_message_text(
                 text=mail_text,
                 chat_id=user_id,
@@ -863,15 +891,6 @@ class MyOrders(Menu):
 
         return answer
 
-    @staticmethod
-    async def get_markup(page: int, pages: int) -> InlineKeyboardMarkup:
-        ikb = InlineKeyboardMarkup()
-        ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))
-        ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
-        ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_my_orders {page} {pages}'))
-
-        return ikb
-
     @classmethod
     async def show_page(cls, message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0):
         user_orders = await cls.db.get_user_orders(message.from_user.id)
@@ -907,7 +926,7 @@ class MyOrders(Menu):
                     await message.answer(cls.get_page(
                         user_orders_count, selected_page, user_orders_count, user_orders
                     )
-                                         )
+                    )
                 else:
                     await bot.send_message(
                         chat_id=user_id,
@@ -920,6 +939,15 @@ class MyOrders(Menu):
                 chat_id=user_id,
                 text='Список заказов пуст'
             )
+
+    @staticmethod
+    async def get_markup(page: int, pages: int) -> InlineKeyboardMarkup:
+        ikb = InlineKeyboardMarkup()
+        ikb.add(InlineKeyboardButton('◀️', callback_data=f'prev_my_orders {page} {pages}'))
+        ikb.insert(InlineKeyboardButton(f'{page}', callback_data='None'))
+        ikb.insert(InlineKeyboardButton('▶️', callback_data=f'next_my_orders {page} {pages}'))
+
+        return ikb
 
     @classmethod
     async def pagination(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):

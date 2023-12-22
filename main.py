@@ -353,28 +353,7 @@ async def get_mail_msg(message: types.Message, state: FSMContext):
 @dp.message_handler()
 async def message_filter(message: types.Message):
     """Handler of product name and other messages"""
-
-    products = await OrderDB.get_prices()
-    for product in products:
-        if message.text == product[0]:
-            try:
-                await bot.send_photo(
-                    message.from_user.id,
-                    photo=product[3],
-                    caption=f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await Product.get_page(message.from_user.id, product[0])
-                )
-
-            except aiogram.utils.exceptions.BadRequest:
-
-                await bot.send_message(
-                    message.from_user.id,
-                    f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await Product.get_page(message.from_user.id, product[0])
-                )
-
-            await OrderDB.add_temp(message.from_user.id, product[0])
-    await message.delete()
+    await Product.show_page(message, bot)
 
 
 @dp.inline_handler(text='#menu')
