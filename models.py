@@ -16,18 +16,6 @@ class Employee(Base):
     date = Column(String, nullable=False)
 
 
-class Basket(Base):
-    __tablename__ = 'baskets'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(BigInteger, nullable=False)
-    order_list = Column(String, nullable=False)
-    price = Column(Integer)
-    order_user_time = Column(String)
-    order_time = Column(String)
-    comment = Column(String)
-
-
 class Price(Base):
     __tablename__ = 'prices'
 
@@ -64,8 +52,8 @@ class Mail(Base):
     selected = Column(Boolean, nullable=False)
 
 
-class Archive(Base):
-    __tablename__ = 'archive'
+class Order(Base):
+    __tablename__ = 'orders'
 
     id = Column(Integer, primary_key=True)
     order_number = Column(BigInteger, nullable=False)
@@ -75,11 +63,3 @@ class Archive(Base):
     comment = Column(String)
     date = Column(String, nullable=False)
     time = Column(String, nullable=False)
-
-
-class Temp(Base):
-    __tablename__ = 'temp'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(BigInteger, nullable=False)
-    order_list = Column(String, nullable=False)

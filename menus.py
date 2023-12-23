@@ -61,7 +61,7 @@ class Basket(Menu):
     async def show_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot,
                         check_basket: bool = False):
         if check_basket:
-            if await cls.db.get_order_by_id(user_id) is None:
+            if await cls.db.get_order_list(user_id) is None:
                 await callback.answer('Корзина пуста')
             else:
                 await bot.send_message(
@@ -266,18 +266,13 @@ class Basket(Menu):
         )
 
     @classmethod
-    async def get_pay_invoice(cls, user_id: int, msg_id: int, bot: Bot):
-        data = await cls.db.get_order_by_id(user_id)
-        try:
-            order_list = json.loads(data[2])
-        except TypeError:
-            await bot.delete_message(user_id, msg_id)
-            return
+    async def get_pay_invoice(cls, user_id: int, bot: Bot):
         order_prices = []
-
+        order_list = await cls.db.get_order_list(user_id)
         prices = await cls.db.get_prices()
         desc = ''
         p = ''
+
         for item in order_list:
             for i in prices:
                 if i[0] == item:
@@ -367,8 +362,8 @@ class Product(Menu):
     async def add(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[11:]
         time = await get_time()
-        await cls.db.set_order_time(user_id, time[0])
         await cls.db.from_temp_to_basket(user_id)
+        await cls.db.set_order_time(user_id, time[0])
         await callback.answer('Товар добавлен в корзину')
 
         await bot.edit_message_reply_markup(
@@ -397,8 +392,8 @@ class Admin(Menu):
     async def show_page(cls, user_id: int, msg_id: int, bot: Bot, show_stats: bool = False):
         if show_stats:
             avg_price = await cls.db.get_avg_order_price()
-            orders_day = await cls.db.get_orders_count_day()
-            orders_month = await cls.db.get_orders_count_month()
+            orders_day = await cls.db.get_orders_count_days(1)
+            orders_month = await cls.db.get_orders_count_days(30)
             orders = await cls.db.get_orders_count()
             stats = f'\n ▫️ Заказов за 24 часа: {orders_day}' \
                     f'\n ▫️ Заказов за 30 дней: {orders_month}' \
@@ -427,7 +422,7 @@ class Admin(Menu):
             cell.style = 'Accent1'
             cell.alignment = Alignment(horizontal='center')
 
-        archive = await cls.db.get_all_from_archive()
+        archive = await cls.db.get_all_from_orders()
 
         for i, order in enumerate(archive):
             ws.append([order[i] for i in [1, 4, 3, 6, 7]])

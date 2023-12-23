@@ -1,5 +1,7 @@
 import os
+
 from dotenv import load_dotenv
+import aioredis
 from loguru import logger
 
 logger.add('logs.log', format='{time} {level} {message}', level='DEBUG')
@@ -17,6 +19,11 @@ DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 DB_NAME = os.getenv('DB_NAME')
 
+REDIS_HOST = os.getenv('REDIS_HOST')
+REDIS_PORT = os.getenv('REDIS_PORT')
+
 
 DATABASE_URL = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 SYNC_DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+
+redis = aioredis.Redis(host=REDIS_HOST, port=int(REDIS_PORT), decode_responses=True)

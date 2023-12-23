@@ -296,7 +296,6 @@ async def inline_h(query: types.InlineQuery):
     if data['is_bot_enabled']:
         item_list = []
         prices = await OrderDB.get_prices()
-
         for product in prices:
             product = list(product)
             if query.chat_type == 'sender':
@@ -312,7 +311,6 @@ async def inline_h(query: types.InlineQuery):
                 thumb_url=product[3],
                 description=f'Состав: {product[2]}\nЦена: {product[1]}₽')
             )
-
         await bot.answer_inline_query(query.id, item_list, cache_time=1)
     else:
         await bot.send_message(query.from_user.id, PAUSE_MESSAGE)
@@ -378,7 +376,7 @@ async def successful_payment(message: types.Message):
         result_time = time
         user_time_str = ''
 
-    await OrderDB.insert_to_archive(
+    await OrderDB.insert_to_orders(
         message.from_user.id, order_number, order_list, comment, price, result_time
     )
 

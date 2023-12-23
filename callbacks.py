@@ -25,7 +25,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await Basket.set_comment(user_id, msg_id, bot)
 
         if callback.data == 'pay':
-            await Basket.get_pay_invoice(user_id, msg_id, bot)
+            await Basket.get_pay_invoice(user_id, bot)
 
         # PRODUCT COUNTER AT THE BASKET PAGE
         if '!up' in callback.data or '!dn' in callback.data:
