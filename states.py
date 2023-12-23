@@ -40,5 +40,5 @@ class ErrorHandler(StatesGroup):
     get_error = State()
 
 
-class Mail(StatesGroup):
+class StateMail(StatesGroup):
     new_mail = State()

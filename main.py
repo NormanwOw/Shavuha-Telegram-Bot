@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import aiogram.utils.exceptions
-from aiogram import Dispatcher, executor
+from aiogram import Dispatcher, executor, Bot
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
@@ -10,7 +10,8 @@ from aiogram.types.message import ContentType
 
 import callbacks
 import commands
-import pages
+
+from menus import Basket, Product, EditMenu, Mail, Admin, Employees, MyOrders
 from config import API_TOKEN
 from functions import *
 from markups import *
@@ -21,22 +22,6 @@ from states import *
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
-
-
-class ProductList:
-    product_list = []
-
-    @classmethod
-    def append_product_list(cls, item):
-        cls.product_list.append(item)
-
-    @classmethod
-    def get_product_list(cls):
-        return cls.product_list
-
-    @classmethod
-    def clear_product_list(cls):
-        cls.product_list.clear()
 
 
 @dp.message_handler(commands=['start', 'new'])
@@ -62,7 +47,7 @@ async def my_orders(message: types.Message):
     User handler
     Show order list
     """
-    await callbacks.my_orders(message, bot, message.from_user.id, message.message_id)
+    await MyOrders.show_page(message, bot, message.from_user.id, message.message_id)
     await bot.delete_message(message.from_user.id, message.message_id)
 
 
@@ -115,7 +100,7 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
     if message.text == '123':
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
         await message.answer('Успешная авторизация', reply_markup=rkb_admin)
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
         await state.finish()
     await message.delete()
 
@@ -126,7 +111,8 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
     Login
     State of getting employee password
     """
-    if message.text.upper() == get_json('data.json')['employee_password']:
+    data = await get_json('data.json')
+    if message.text.upper() == data['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         await update_password()
         await message.answer(EMPLOYEE_MESSAGE, reply_markup=rkb_employee)
@@ -146,7 +132,7 @@ async def change_product_desc(message: types.Message, state: FSMContext):
     await bot.send_message(
         chat_id=message.from_user.id,
         text='✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
-        reply_markup=await pages.edit_menu_page(False)
+        reply_markup=await EditMenu.get_page(False)
     )
 
     await state.finish()
@@ -167,7 +153,7 @@ async def change_product_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(EDIT_MENU_TITLE, reply_markup=await pages.edit_menu_page(False))
+        await message.answer(EDIT_MENU_TITLE, reply_markup=await EditMenu.get_page(False))
         await OrderDB.set_product_image(message.text, product)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
@@ -196,7 +182,7 @@ async def change_product_price(message: types.Message, state: FSMContext):
         await bot.send_message(
             chat_id=message.from_user.id,
             text='✅ Цена изменена\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await pages.edit_menu_page(False)
+            reply_markup=await EditMenu.get_page(False)
         )
 
         await state.finish()
@@ -209,16 +195,7 @@ async def add_product_name(message: types.Message):
     Add new product
     State of getting product name
     """
-    if len(message.text) > 1:
-        await bot.send_message(
-            message.from_user.id,
-            'Введите стоимость товара:',
-            reply_markup=ikb_cancel
-        )
-
-        ProductList.append_product_list(message.text)
-        await AddProduct.get_price.set()
-    await message.delete()
+    await EditMenu.add_name(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_price)
@@ -227,19 +204,7 @@ async def add_product_price(message: types.Message):
     Add new product
     State of getting product price
     """
-    try:
-        if int(message.text) >= 0:
-            await bot.send_message(
-                message.from_user.id,
-                'Введите состав:',
-                reply_markup=ikb_cancel
-            )
-
-            ProductList.append_product_list(int(message.text))
-            await AddProduct.get_desc.set()
-    except ValueError:
-        pass
-    await message.delete()
+    await EditMenu.add_price(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_desc)
@@ -248,16 +213,7 @@ async def add_product_desc(message: types.Message):
     Add new product
     State of getting product description
     """
-    ProductList.append_product_list(message.text)
-
-    await bot.send_message(
-        message.from_user.id,
-        'Отправьте изображение:',
-        reply_markup=ikb_add_image
-    )
-
-    await AddProduct.get_image.set()
-    await message.delete()
+    await EditMenu.add_desc(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_image)
@@ -266,28 +222,7 @@ async def add_product_image(message: types.Message, state: FSMContext):
     Add new product
     State of getting product image
     """
-    try:
-        await bot.send_photo(message.from_user.id, message.text)
-
-        await bot.send_message(
-            message.from_user.id,
-            '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await pages.edit_menu_page(False)
-        )
-
-        ProductList.append_product_list(message.text)
-        await OrderDB.add_product(ProductList.get_product_list())
-        ProductList.clear_product_list()
-        await state.finish()
-    except aiogram.utils.exceptions.BadRequest:
-
-        await bot.send_message(
-            message.from_user.id,
-            'Неверная ссылка, изображение не найдено',
-            reply_markup=ikb_cancel
-        )
-
-    await message.delete()
+    await EditMenu.add_image(message, bot, state)
 
 
 @dp.message_handler(state=ChangeMainImage.get_main_image)
@@ -303,7 +238,7 @@ async def change_main_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
         await OrderDB.set_url('main_image', message.text)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
@@ -329,12 +264,12 @@ async def set_comment(message: types.Message, state: FSMContext):
 
     await bot.send_message(
         chat_id=message.from_user.id,
-        text=await basket_title(message.from_user.id),
-        reply_markup=await pages.basket_menu_page(message.from_user.id)
+        text=await Basket.get_title(message.from_user.id),
+        reply_markup=await Basket.get_page(message.from_user.id)
     )
 
 
-@dp.message_handler(state=Mail.new_mail)
+@dp.message_handler(state=StateMail.new_mail)
 async def get_mail_msg(message: types.Message, state: FSMContext):
     """
     Mail
@@ -344,40 +279,21 @@ async def get_mail_msg(message: types.Message, state: FSMContext):
         await OrderDB.insert_mail(message.text)
         mail_id, mail_text = await OrderDB.get_mail()
         await state.finish()
-        await message.answer(mail_text, reply_markup=await pages.my_mails(int(mail_id)))
+        await message.answer(mail_text, reply_markup=await Mail.my_mails(int(mail_id)))
     await message.delete()
 
 
 @dp.message_handler()
 async def message_filter(message: types.Message):
     """Handler of product name and other messages"""
-
-    products = await OrderDB.get_prices()
-    for product in products:
-        if message.text == product[0]:
-            try:
-                await bot.send_photo(
-                    message.from_user.id,
-                    photo=product[3],
-                    caption=f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await pages.product_page(message.from_user.id, product[0])
-                )
-
-            except aiogram.utils.exceptions.BadRequest:
-
-                await bot.send_message(
-                    message.from_user.id,
-                    f'<b>{product[0]}</b>\nСостав: {product[2]}\nЦена: {product[1]}₽',
-                    reply_markup=await pages.product_page(message.from_user.id, product[0])
-                )
-
-            await OrderDB.add_temp(message.from_user.id, product[0])
-    await message.delete()
+    await Product.show_page(message, bot)
 
 
 @dp.inline_handler(text='#menu')
 async def inline_h(query: types.InlineQuery):
-    if get_json('data.json')['is_bot_enabled']:
+    data = await get_json('data.json')
+
+    if data['is_bot_enabled']:
         item_list = []
         prices = await OrderDB.get_prices()
 
@@ -407,11 +323,11 @@ async def inline_h(query: types.InlineQuery):
            ChangeProduct.get_new_product_image, ChangeProduct.get_new_price,
            AddProduct.get_price, AddProduct.get_image, AddProduct.get_name, AddProduct.get_desc,
            ChangeMainImage.get_main_image, OrderComment.get_comment, ErrorHandler.get_error,
-           Mail.new_mail]
+           StateMail.new_mail]
 )
 async def cancel_callback(callback: types.CallbackQuery, state: FSMContext):
     """Add Cancel button for message"""
-    await callbacks.cancel_callback(callback, bot, state, ProductList)
+    await callbacks.cancel_callback(callback, bot, state)
 
 
 @dp.callback_query_handler()
@@ -467,18 +383,18 @@ async def successful_payment(message: types.Message):
     )
 
     print(
-        {'user_id': message.from_user.id,
-         'order_number': order_number,
-         'order_list': order_list,
-         'price': str(price) + cur,
-         'order_user_time': order_user_time,
-         'comment': comment,
-         'date': date,
-         'time': time
+        {"user_id": message.from_user.id,
+         "order_number": order_number,
+         "order_list": order_list,
+         "price": str(price) + cur,
+         "order_user_time": order_user_time,
+         "comment": comment,
+         "date": date,
+         "time": time
          }
     )
 
-    await send_order_to_employees(
+    await Employees.send_order_to_employees(
         comment, payload, bot, order_number, user_time_str, price, date, time
     )
 

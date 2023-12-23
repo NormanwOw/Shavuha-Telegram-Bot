@@ -1,16 +1,19 @@
 from callbacks import *
 from states import *
+from markups import *
 from order_db import OrderDB
+from menus import Admin
 
 
 async def start_command(bot: Bot, message: types.Message):
-    state = get_json('data.json')['is_bot_enabled']
+    state = await get_json('data.json')
+    state = state['is_bot_enabled']
 
     if state:
         await bot.send_photo(
             chat_id=message.from_user.id,
             photo=await OrderDB.get_url('main_image'),
-            caption=MAIN_PAGE, reply_markup=ikb
+            caption=MAIN_PAGE, reply_markup=ikb_main
         )
 
         await OrderDB.clear_basket(message.from_user.id)
@@ -27,7 +30,7 @@ async def start_command(bot: Bot, message: types.Message):
 async def admin_login(message: types.Message):
     adm_list = await OrderDB.get_id_by_status('Admin')
     if message.from_user.id in adm_list:
-        await message.answer(ADMIN_TITLE, reply_markup=ikb_admin)
+        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
     else:
         await Login.admin_password.set()
         await message.answer('Введите пароль:', reply_markup=ikb_cancel)

@@ -16,16 +16,16 @@ class Employee(Base):
     date = Column(String, nullable=False)
 
 
-class Order(Base):
-    __tablename__ = 'orders'
+class Basket(Base):
+    __tablename__ = 'baskets'
 
     id = Column(Integer, primary_key=True)
     user_id = Column(BigInteger, nullable=False)
     order_list = Column(String, nullable=False)
-    price = Column(Integer, nullable=True)
-    order_user_time = Column(String, nullable=True)
-    order_time = Column(String, nullable=True)
-    comment = Column(String, nullable=True)
+    price = Column(Integer)
+    order_user_time = Column(String)
+    order_time = Column(String)
+    comment = Column(String)
 
 
 class Price(Base):
@@ -35,7 +35,7 @@ class Price(Base):
     product = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     description = Column(String, nullable=False)
-    url = Column(String, nullable=False)
+    url = Column(String)
 
 
 class Url(Base):
@@ -64,15 +64,6 @@ class Mail(Base):
     selected = Column(Boolean, nullable=False)
 
 
-class Temp(Base):
-    __tablename__ = 'temp'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(BigInteger, nullable=False)
-    product = Column(String, nullable=False)
-    count = Column(Integer, nullable=False)
-
-
 class Archive(Base):
     __tablename__ = 'archive'
 
@@ -81,6 +72,14 @@ class Archive(Base):
     user_id = Column(BigInteger, nullable=False)
     price = Column(Integer, nullable=False)
     order_list = Column(String, nullable=False)
-    comment = Column(String, nullable=False)
+    comment = Column(String)
     date = Column(String, nullable=False)
     time = Column(String, nullable=False)
+
+
+class Temp(Base):
+    __tablename__ = 'temp'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, nullable=False)
+    order_list = Column(String, nullable=False)
