@@ -567,7 +567,7 @@ class OrderDB:
     async def get_mail(cls) -> tuple:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT id, mail FROM mails WHERE selected=true"
+                "SELECT (id, mail) FROM mails WHERE selected=true"
             )
             query = await connect.execute(query)
 
