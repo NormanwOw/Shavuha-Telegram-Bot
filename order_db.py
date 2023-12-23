@@ -7,16 +7,15 @@ from config import DATABASE_URL
 
 
 class OrderDB:
-
     __async_engine = create_async_engine(url=DATABASE_URL)
 
-    # ORDERS TABLE ================================================================================
+    # BASKETS TABLE ===============================================================================
     @classmethod
     async def get_order_list(cls, user_id: int) -> dict or None:
         async with cls.__async_engine.connect() as connect:
             try:
                 query = text(
-                    "SELECT order_list FROM orders WHERE user_id=:user_id"
+                    "SELECT order_list FROM baskets WHERE user_id=:user_id"
                 ).bindparams(user_id=user_id)
 
                 order = await connect.execute(query)
@@ -31,7 +30,7 @@ class OrderDB:
         async with cls.__async_engine.connect() as connect:
             try:
                 query = text(
-                    "SELECT * FROM orders WHERE user_id=:user_id"
+                    "SELECT * FROM baskets WHERE user_id=:user_id"
                 ).bindparams(user_id=user_id)
 
                 order = await connect.execute(query)
@@ -42,26 +41,6 @@ class OrderDB:
                 return None
 
     @classmethod
-    async def get_products_count(cls, user_id: int) -> int or 0:
-        async with cls.__async_engine.connect() as connect:
-            try:
-                query = text(
-                    "SELECT order_list FROM orders WHERE user_id=:user_id"
-                ).bindparams(user_id=user_id)
-
-                order = await connect.execute(query)
-                order = json.loads(order.scalar())
-
-                count = 0
-                for product in order:
-                    count += order[product]
-
-                return count
-
-            except TypeError:
-                return 0
-
-    @classmethod
     async def add_order(cls, user_id: int, new_order_list: dict):
         async with cls.__async_engine.connect() as connect:
             order_list = await cls.get_order_list(user_id)
@@ -70,7 +49,7 @@ class OrderDB:
                 new_order_list_js = json.dumps(new_order_list, ensure_ascii=False)
 
                 stmt = text(
-                    "INSERT INTO orders (user_id, order_list) VALUES (:user_id, :order_list)"
+                    "INSERT INTO baskets (user_id, order_list) VALUES (:user_id, :order_list)"
                 ).bindparams(user_id=user_id, order_list=new_order_list_js)
 
                 await connect.execute(stmt)
@@ -90,19 +69,36 @@ class OrderDB:
                 order_list = json.dumps(order_list, ensure_ascii=False)
 
                 stmt = text(
-                    "UPDATE orders SET order_list=:order_list WHERE user_id=:user_id"
+                    "UPDATE baskets SET order_list=:order_list WHERE user_id=:user_id"
                 ).bindparams(order_list=order_list, user_id=user_id)
 
                 await connect.execute(stmt)
                 await connect.commit()
 
-            await OrderDB.update_price(user_id)
+            await cls.update_price(user_id)
+
+    @classmethod
+    async def get_basket_products_count(cls, user_id: int) -> int:
+        async with cls.__async_engine.connect() as connect:
+            query = text(
+                "SELECT order_list FROM baskets WHERE user_id=:user_id"
+            ).bindparams(user_id=user_id)
+
+            query = await connect.execute(query)
+            query = query.scalar()
+            if query is None:
+                return 0
+
+            order_list = json.loads(query)
+            count = sum([count for count in order_list.values()])
+
+            return count
 
     @classmethod
     async def set_price(cls, user_id: int, price: int):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE orders SET price=:price WHERE user_id=:user_id"
+                "UPDATE baskets SET price=:price WHERE user_id=:user_id"
             ).bindparams(price=price, user_id=user_id)
 
             await connect.execute(stmt)
@@ -112,7 +108,7 @@ class OrderDB:
     async def get_price(cls, user_id: int) -> int:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT price FROM orders WHERE user_id=:"
+                "SELECT price FROM baskets WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             price = await connect.execute(query)
@@ -123,7 +119,7 @@ class OrderDB:
     async def set_order_time(cls, user_id: int, time: str):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE orders SET order_time=:time WHERE user_id=:user_id"
+                "UPDATE baskets SET order_time=:time WHERE user_id=:user_id"
             ).bindparams(time=time, user_id=user_id)
 
             await connect.execute(stmt)
@@ -133,7 +129,7 @@ class OrderDB:
     async def get_order_time(cls, user_id: int) -> str:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT order_time FROM orders WHERE user_id=:user_id"
+                "SELECT order_time FROM baskets WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             query = await connect.execute(query)
@@ -144,7 +140,7 @@ class OrderDB:
     async def set_order_user_time(cls, user_id: int, time: str or None):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE orders SET order_user_time=:time WHERE user_id=:user_id"
+                "UPDATE baskets SET order_user_time=:time WHERE user_id=:user_id"
             ).bindparams(time=time, user_id=user_id)
 
             await connect.execute(stmt)
@@ -154,7 +150,7 @@ class OrderDB:
     async def get_order_user_time(cls, user_id: int) -> str:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT order_user_time FROM orders WHERE user_id=:user_id"
+                "SELECT order_user_time FROM baskets WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             query = await connect.execute(query)
@@ -165,7 +161,7 @@ class OrderDB:
     async def clear_basket(cls, user_id: int):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "DELETE FROM orders WHERE user_id=:user_id"
+                "DELETE FROM baskets WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             await connect.execute(stmt)
@@ -175,7 +171,7 @@ class OrderDB:
     async def set_comment(cls, user_id: int, comment: str):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE orders SET comment=:comment WHERE user_id=:user_id"
+                "UPDATE baskets SET comment=:comment WHERE user_id=:user_id"
             ).bindparams(comment=comment, user_id=user_id)
 
             await connect.execute(stmt)
@@ -185,7 +181,7 @@ class OrderDB:
     async def get_comment(cls, user_id: int) -> str:
         async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT comment FROM orders WHERE user_id=:user_id"
+                "SELECT comment FROM baskets WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             query = await connect.execute(query)
@@ -196,14 +192,14 @@ class OrderDB:
     async def delete_comment(cls, user_id: int):
         async with cls.__async_engine.connect() as connect:
             stmt = text(
-                "UPDATE orders SET comment=NULL WHERE user_id=:user_id"
+                "UPDATE baskets SET comment=NULL WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             await connect.execute(stmt)
             await connect.commit()
 
-# PRICES TABLE
-# =================================================================================================
+    # PRICES TABLE
+    # =============================================================================================
     @classmethod
     async def add_product(cls, product_list: list):
         async with cls.__async_engine.connect() as connect:
@@ -294,8 +290,8 @@ class OrderDB:
             await connect.execute(stmt)
             await connect.commit()
 
-# ARCHIVE TABLE
-# =================================================================================================
+    # ARCHIVE TABLE
+    # =============================================================================================
 
     @classmethod
     async def insert_to_archive(cls, user_id: int, order_number: int, order_list: str,
@@ -386,7 +382,7 @@ class OrderDB:
                     f"SELECT order_number, price, order_list, comment, date, time "
                     f"FROM archive WHERE date LIKE :date "
                     f"OR date LIKE :date_2"
-                ).bindparams(date=f'__{date}', date_2=f'__{date_2}',)
+                ).bindparams(date=f'__{date}', date_2=f'__{date_2}', )
 
                 query = await connect.execute(query)
                 days_list = list(query.scalars().all())
@@ -448,8 +444,8 @@ class OrderDB:
             except TypeError:
                 return False
 
-# EMPLOYEES TABLE
-# =================================================================================================
+    # EMPLOYEES TABLE
+    # =============================================================================================
 
     @classmethod
     async def add_employee(cls, user_id: int, full_name: str, status: str):
@@ -503,8 +499,20 @@ class OrderDB:
             await connect.execute(stmt)
             await connect.commit()
 
-# TEMP TABLE
-# =================================================================================================
+    # TEMP TABLE
+    # =============================================================================================
+
+    @classmethod
+    async def from_temp_to_basket(cls, user_id: int):
+        async with cls.__async_engine.connect() as connect:
+            query = text(
+                "SELECT order_list FROM temp WHERE user_id=:user_id"
+            ).bindparams(user_id=user_id)
+
+            order = await connect.execute(query)
+            order = order.scalar()
+
+            await cls.add_order(user_id, json.loads(order))
 
     @classmethod
     async def delete_temp(cls, user_id: int):
@@ -517,73 +525,111 @@ class OrderDB:
             await connect.commit()
 
     @classmethod
-    async def add_temp(cls, user_id: int, product: str, count: int = 1):
+    async def update_temp(cls, user_id: str, product: str, count: int) -> int:
         async with cls.__async_engine.connect() as connect:
-            stmt = text(
-                "INSERT INTO temp (user_id, product, count) "
-                "VALUES (:user_id, :product, :count)"
-            ).bindparams(user_id=user_id, product=product, count=count)
+            count_product = 1
 
-            await connect.execute(stmt)
-            await connect.commit()
-
-    @classmethod
-    async def temp_to_order(cls, user_id: int):
-        async with cls.__async_engine.connect() as connect:
             query = text(
-                "SELECT (product, count) FROM temp WHERE user_id=:user_id"
+                "SELECT order_list FROM temp WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
-            query = await connect.execute(query)
-            query = query.scalars().fetchall()
+            order = await connect.execute(query)
+            order_list = order.scalar()
 
-            order_list = {key: value for key, value in query}
-            await cls.add_order(user_id, order_list)
+            if order_list is None:
+                order_list = json.dumps({product: count_product}, ensure_ascii=False)
+                stmt = text(
+                    "INSERT INTO temp (user_id, order_list) "
+                    "VALUES (:user_id, :order_list)"
+                ).bindparams(user_id=user_id, order_list=order_list)
+                await connect.execute(stmt)
+                await connect.commit()
+            else:
+                order_list = json.loads(order_list)
+                for item in order_list.keys():
+                    if item == product:
+                        order_list[item] += count
+                        count_product = order_list[item]
+                order_list = json.dumps(order_list, ensure_ascii=False)
+
+                if count_product > 0:
+                    stmt = text(
+                        "UPDATE temp SET order_list=:order_list WHERE user_id=:user_id"
+                    ).bindparams(order_list=order_list, user_id=user_id)
+
+                    await connect.execute(stmt)
+                    await connect.commit()
+
+        return count_product
 
     @classmethod
-    async def set_count(cls, user_id: int, count=1):
+    async def get_order(cls, user_id: int) -> dict or None:
         async with cls.__async_engine.connect() as connect:
-            stmt = text(
-                "UPDATE temp SET count=:count WHERE user_id=:user_id"
-            ).bindparams(count=count, user_id=user_id)
+            query = text(
+                "SELECT order_list FROM temp WHERE user_id=:user_id"
+            ).bindparams(user_id=user_id)
 
-            await connect.execute(stmt)
-            await connect.commit()
+            order = await connect.execute(query)
+            order = order.scalar()
+
+            if order is None:
+                return order
+
+            return json.loads(order)
+
+    @classmethod
+    async def get_temp_products_count(cls, user_id: int) -> int or 0:
+        async with cls.__async_engine.connect() as connect:
+            try:
+                query = text(
+                    "SELECT order_list FROM temp WHERE user_id=:user_id"
+                ).bindparams(user_id=user_id)
+
+                order = await connect.execute(query)
+                order = json.loads(order.scalar())
+
+                count = 0
+                for product in order:
+                    count += order[product]
+
+                return count
+
+            except TypeError:
+                return 0
 
     @classmethod
     async def get_count(cls, user_id: int) -> int:
         async with cls.__async_engine.connect() as connect:
-
             query = text(
-                "SELECT count FROM temp WHERE user_id=:user_id"
+                "SELECT order_list FROM temp WHERE user_id=:user_id"
             ).bindparams(user_id=user_id)
 
             query = await connect.execute(query)
+            order_list = query.scalar()
 
-            query = query.scalar()
+            if order_list is None:
+                return 0
 
-            if query is None:
-                return 1
+            order_list = json.loads(order_list)
 
-            return query
+            count = sum([count for count in order_list.values()])
+
+            return count
 
     @classmethod
-    async def is_temp_exists(cls, user_id: int) -> int or False:
-        async with cls.__async_engine.connect() as connect:
-            try:
-                query = text(
-                    "SELECT count FROM temp WHERE user_id=:user_id"
-                ).bindparams(user_id=user_id)
+    async def get_count_by_product(cls, user_id: int, product: str) -> int:
+        order = await cls.get_order(user_id)
+        try:
+            if order is None:
+                return 1
 
-                query = await connect.execute(query)
+            return order[product]
+        except KeyError:
+            return 1
 
-                return query.scalar()
+    # URLS TABLE
+    # =============================================================================================
 
-            except TypeError:
-                return False
-
-# URLS TABLE
-# =================================================================================================
     @classmethod
     async def set_url(cls, title: str, url: str):
         async with cls.__async_engine.connect() as connect:
@@ -605,8 +651,8 @@ class OrderDB:
 
             return query.scalar()
 
-# PRICES TABLE
-# =================================================================================================
+    # PRICES TABLE
+    # =============================================================================================
     @classmethod
     async def insert_error(cls, username: int, error: str, date: str, time: str):
         async with cls.__async_engine.connect() as connect:
@@ -618,8 +664,8 @@ class OrderDB:
             await connect.execute(stmt)
             await connect.commit()
 
-# MAILS TABLE
-# =================================================================================================
+    # MAILS TABLE
+    # =============================================================================================
 
     @classmethod
     async def insert_mail(cls, mail: str):
@@ -714,7 +760,7 @@ class OrderDB:
 
             stmt = text(
                 "UPDATE mails SET selected=true WHERE id=:id"
-            ).bindparams(id=mail_id+move)
+            ).bindparams(id=mail_id + move)
 
             await connect.execute(stmt)
             await connect.commit()
