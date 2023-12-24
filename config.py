@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import aioredis
 from loguru import logger
 
+from aiogram import Dispatcher, Bot
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
 logger.add('logs.log', format='{time} {level} {message}', level='DEBUG')
 
 TIME_ZONE = 5
@@ -27,3 +30,7 @@ DATABASE_URL = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{D
 SYNC_DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
 redis = aioredis.Redis(host=REDIS_HOST, port=int(REDIS_PORT), decode_responses=True)
+
+bot = Bot(API_TOKEN, parse_mode='HTML')
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)

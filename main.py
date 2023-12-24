@@ -1,8 +1,7 @@
 from datetime import datetime
 
 import aiogram.utils.exceptions
-from aiogram import Dispatcher, executor, Bot
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram import executor
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.types import PreCheckoutQuery
@@ -12,16 +11,12 @@ import callbacks
 import commands
 
 from menus import Basket, Product, EditMenu, Mail, Admin, Employees, MyOrders
-from config import API_TOKEN
+from config import bot, dp
 from functions import *
 from markups import *
 from messages import *
 from order_db import OrderDB
 from states import *
-
-bot = Bot(API_TOKEN, parse_mode='HTML')
-storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
 
 
 @dp.message_handler(commands=['start', 'new'])

@@ -1,18 +1,16 @@
-import os
 from abc import ABC, abstractmethod
 
 from aiogram.types import CallbackQuery, LabeledPrice
 import aiogram.utils.exceptions
 from aiogram import Bot
 from aiogram.dispatcher import FSMContext
-from openpyxl import Workbook
-from openpyxl.styles import Alignment
 
 from config import PAY_TOKEN
 from functions import *
 from messages import *
 from markups import *
 from states import *
+from tasks.tasks import get_xlsx, send_mail
 
 
 class Menu(ABC):
@@ -410,40 +408,8 @@ class Admin(Menu):
         )
 
     @classmethod
-    async def get_xlsx(cls, user_id: int, bot: Bot):
-        wb = Workbook()
-        ws = wb.active
-        ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
-
-        table = ['A', 'B', 'C', 'D', 'E']
-
-        for ch in table:
-            cell = ws[f'{ch}1']
-            cell.style = 'Accent1'
-            cell.alignment = Alignment(horizontal='center')
-
-        archive = await cls.db.get_all_from_orders()
-
-        for i, order in enumerate(archive):
-            ws.append([order[i] for i in [1, 4, 3, 6, 7]])
-            ws[f'C{i + 2}'].number_format = '#,## ₽'
-            ws[f'D{i + 2}'].alignment = Alignment(horizontal='right')
-            ws[f'E{i + 2}'].alignment = Alignment(horizontal='right')
-
-        ws.column_dimensions["A"].width = 15
-        ws.column_dimensions["B"].width = 60
-        ws.column_dimensions["C"].width = 12
-        ws.column_dimensions["D"].width = 13
-        ws.column_dimensions["E"].width = 10
-
-        now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
-        path = now.strftime('%d.%m.%Y') + '.xlsx'
-        wb.save(path)
-
-        await bot.send_document(user_id, open(path, 'rb'))
-        for file in os.listdir():
-            if '.xlsx' in file:
-                os.remove(file)
+    async def get_xlsx(cls, user_id: int):
+        get_xlsx.delay(user_id)
 
     @classmethod
     async def get_error(cls, callback: CallbackQuery):
@@ -891,26 +857,7 @@ class Mail(Menu):
     @classmethod
     async def send(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         if 'yes' in callback.data:
-            users = await cls.db.get_all_user_id()
-            _, mail_text = await cls.db.get_mail()
-            if users:
-                for user in users:
-                    await bot.send_message(
-                        chat_id=user,
-                        text=mail_text
-                    )
-
-                word = 'клиенту' if str(len(users))[-1] == '1' else 'клиентам'
-
-                await callback.answer(
-                    f'Рассылка успешно отправлена {len(users)} {word}',
-                    show_alert=True
-                )
-
-                await bot.delete_message(user_id, msg_id)
-            else:
-                await callback.answer('Список клиентов пуст', show_alert=True)
-                await bot.delete_message(user_id, msg_id)
+            send_mail.delay(user_id)
 
         elif 'no' in callback.data:
             await callback.answer('Отправление отменено', show_alert=True)
@@ -923,6 +870,7 @@ class Mail(Menu):
                 text=SEND_MAIL + mail_text[1],
                 reply_markup=ikb_send_mail
             )
+        await bot.delete_message(user_id, msg_id)
 
 
 class MyOrders(Menu):

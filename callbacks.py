@@ -58,7 +58,7 @@ async def handler(user_id: int, msg_id: int, callback: types.CallbackQuery, bot:
             await EditMenu.show_page(user_id, msg_id, bot)
 
         if callback.data == 'admin_xlsx':
-            await Admin.get_xlsx(user_id, bot)
+            await Admin.get_xlsx(user_id)
 
         if callback.data == 'admin_error':
             await Admin.get_error(callback)

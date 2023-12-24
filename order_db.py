@@ -247,14 +247,14 @@ class OrderDB:
             await connect.commit()
 
     @classmethod
-    async def get_all_from_orders(cls):
+    async def get_all_from_orders(cls) -> list:
         async with cls.__async_engine.connect() as connect:
             query = text(
                 "SELECT * FROM orders"
             )
             query = await connect.execute(query)
 
-            return query.all()
+            return list(query.all())
 
     @classmethod
     async def get_order_numbers(cls, order_number: int) -> int:
@@ -335,7 +335,6 @@ class OrderDB:
             return len(await cls.get_orders(days))
         except TypeError:
             return 0
-
 
     @classmethod
     async def get_orders_count(cls):
