@@ -17,7 +17,6 @@ celery.autodiscover_tasks()
 
 
 async def xlsx(user_id: int):
-    await asyncio.sleep(10)
     wb = Workbook()
     ws = wb.active
     ws.append(['Номер заказа', 'Заказ', 'Стоимость', 'Дата', 'Время'])
@@ -54,7 +53,6 @@ async def xlsx(user_id: int):
 
 
 async def mail(user_id: int):
-    await asyncio.sleep(3)
     users = await OrderDB.get_all_user_id()
     _, mail_text = await OrderDB.get_mail()
     if users:

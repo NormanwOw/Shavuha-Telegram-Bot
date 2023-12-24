@@ -1,4 +1,4 @@
-from sqlalchemy import insert
+from sqlalchemy import insert, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import create_engine
 
@@ -23,6 +23,9 @@ if __name__ == '__main__':
                          "2b2c5a8d40a4b"}
                  ]
             )
+            session.execute(stmt)
+
+            stmt = delete(Price)
             session.execute(stmt)
 
             stmt = insert(Price).values(
@@ -89,4 +92,3 @@ if __name__ == '__main__':
             session.commit()
 
     up_db()
-

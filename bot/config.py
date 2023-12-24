@@ -35,5 +35,5 @@ dp = Dispatcher(bot, storage=storage)
 
 
 redis = aioredis.from_url(
-    f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+    f'redis://{REDIS_HOST}:{REDIS_PORT}', encoding='utf-8', decode_responses=True
 )

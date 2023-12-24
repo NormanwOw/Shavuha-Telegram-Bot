@@ -1,0 +1,39 @@
+version: '3.7'
+services:
+  db:
+    image: postgres:16
+    container_name: db_app
+    command: -p 5433
+    expose:
+      - 5433
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - .env-non-dev
+  redis:
+    image: redis:7
+    container_name: redis_app
+    command: --port 6380
+    expose:
+      - 6380
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "alembic upgrade head && python up_db.py && python main.py"
+    env_file:
+      - .env-non-dev
+    depends_on:
+      - db
+      - redis
+  celery:
+    build:
+      context: .
+    env_file:
+      - .env-non-dev
+    container_name: celery_app
+    command: bash -c "celery --app=tasks.tasks:celery worker"
+    depends_on:
+      - redis
+volumes:
+  pgdata:

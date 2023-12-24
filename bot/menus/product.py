@@ -29,6 +29,7 @@ class Product(Menu):
 
     @classmethod
     async def show_page(cls, message: types.Message, bot: Bot):
+        print('asd')
         products = await cls.db.get_prices()
         for product in products:
             if message.text == product[0]:

@@ -1,5 +1,7 @@
 # Shavuha Telegram-Bot
-![](https://img.shields.io/badge/Python-v3.9-green) ![](https://img.shields.io/badge/Aiogram-v2.25.1-blue) ![](https://img.shields.io/badge/SQLite-v3-white)
+![](https://img.shields.io/badge/Python-v3.9-green) ![](https://img.shields.io/badge/Aiogram-v2.25.1-blue) ![](https://img.shields.io/badge/SQLAlchemy-v2.0-yellow) ![](https://img.shields.io/badge/PostgreSQL-v16-blue) 
+![](https://img.shields.io/badge/Redis-v5.0-red) ![](https://img.shields.io/badge/Celery-v5.3-green) 
+![](https://img.shields.io/badge/Alembic-v2.0-violet) ![](https://img.shields.io/badge/Docker-blue)  
 
 Actual version of this bot running here - [@za_uglom_bot](https://t.me/za_uglom_bot)
 
