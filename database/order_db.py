@@ -4,7 +4,8 @@ import datetime
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
-from config import DATABASE_URL, redis
+from bot.config import DATABASE_URL
+from bot.config import redis
 
 
 class OrderDB:
@@ -13,21 +14,24 @@ class OrderDB:
     # BASKETS TABLE ===============================================================================
     @classmethod
     async def get_basket(cls, user_id: int) -> dict or None:
-        basket = await redis.get(f'basket_{user_id}')
+        async with redis.client() as conn:
+            basket = await conn.get(f'basket_{user_id}')
 
-        if basket is None:
-            return None
+            if basket is None:
+                return None
 
-        return json.loads(basket)
+            return json.loads(basket)
 
     @classmethod
     async def set_basket(cls, user_id: int, basket: dict):
-        basket = json.dumps(basket, ensure_ascii=False)
-        await redis.set(f'basket_{user_id}', basket)
+        async with redis.client() as conn:
+            basket = json.dumps(basket, ensure_ascii=False)
+            await conn.set(f'basket_{user_id}', basket)
 
     @classmethod
     async def clear_basket(cls, user_id: int):
-        await redis.delete(f'basket_{user_id}')
+        async with redis.client() as conn:
+            await conn.delete(f'basket_{user_id}')
 
     @classmethod
     async def get_order_list(cls, user_id: int) -> dict or None:
@@ -438,38 +442,40 @@ class OrderDB:
 
     @classmethod
     async def delete_temp(cls, user_id: int):
-        await redis.delete(str(user_id))
+        async with redis.client() as conn:
+            await conn.delete(str(user_id))
 
     @classmethod
     async def update_temp(cls, user_id: int, product: str, count: int) -> int:
-        count_product = 1
+        async with redis.client() as conn:
+            count_product = 1
+            order_list = await conn.get(str(user_id))
 
-        order_list = await redis.get(str(user_id))
+            if order_list is None:
+                order_list = json.dumps({product: count_product}, ensure_ascii=False)
+                await conn.set(str(user_id), order_list)
+            else:
+                order_list = json.loads(order_list)
+                for item in order_list.keys():
+                    if item == product:
+                        order_list[item] += count
+                        count_product = order_list[item]
+                order_list = json.dumps(order_list, ensure_ascii=False)
 
-        if order_list is None:
-            order_list = json.dumps({product: count_product}, ensure_ascii=False)
-            await redis.set(str(user_id), order_list)
-        else:
-            order_list = json.loads(order_list)
-            for item in order_list.keys():
-                if item == product:
-                    order_list[item] += count
-                    count_product = order_list[item]
-            order_list = json.dumps(order_list, ensure_ascii=False)
+                if count_product > 0:
+                    await conn.set(str(user_id), order_list)
 
-            if count_product > 0:
-                await redis.set(str(user_id), order_list)
-
-        return count_product
+            return count_product
 
     @classmethod
     async def get_order(cls, user_id: int) -> dict or None:
-        order = await redis.get(str(user_id))
+        async with redis.client() as conn:
+            order = await conn.get(str(user_id))
 
-        if order is None:
-            return None
+            if order is None:
+                return None
 
-        return json.loads(order)
+            return json.loads(order)
 
     @classmethod
     async def get_temp_products_count(cls, user_id: int) -> int or 0:

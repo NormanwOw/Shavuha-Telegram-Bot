@@ -2,8 +2,8 @@ from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import create_engine
 
-from models import Price, Url
-from config import SYNC_DATABASE_URL
+from database.models import Price, Url
+from bot.config import SYNC_DATABASE_URL
 
 
 if __name__ == '__main__':

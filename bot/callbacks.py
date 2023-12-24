@@ -2,9 +2,16 @@ import aiogram.utils.exceptions
 from aiogram.dispatcher import FSMContext
 from aiogram import Bot
 
-from messages import *
-from functions import *
-from menus import Basket, Product, Employees, EditMenu, Settings, Mail, MyOrders, Admin
+from .messages import *
+from .functions import *
+from bot.menus.admin import Admin
+from bot.menus.basket import Basket
+from bot.menus.editmenu import EditMenu
+from bot.menus.employees import Employees
+from bot.menus.mail import Mail
+from bot.menus.myorders import MyOrders
+from bot.menus.product import Product
+from bot.menus.settings import Settings
 
 
 @logger.catch

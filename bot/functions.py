@@ -3,27 +3,27 @@ import random
 import string
 import hashlib
 import datetime
+from asyncio import sleep
 
 from aiogram import types
-from asyncio import sleep
 from aiofile import async_open
 
-from order_db import OrderDB
-from config import TIME_ZONE, logger
-from messages import ERROR_F
+from database.order_db import OrderDB
+from .config import TIME_ZONE, logger
+from .messages import ERROR_F
 
 
 @logger.catch
-async def set_json(path: str, data: dict):
-    json_data = await get_json(path)
+async def set_json(data: dict):
+    json_data = await get_json()
     json_data = json_data | data
-    async with async_open(path, 'w') as file:
+    async with async_open('data.json', 'w') as file:
         await file.write(json.dumps(json_data))
 
 
 @logger.catch
-async def get_json(path: str) -> dict:
-    async with async_open(path, 'r') as file:
+async def get_json() -> dict:
+    async with async_open('data.json', 'r') as file:
         return json.loads(await file.read())
 
 
@@ -45,7 +45,7 @@ async def gen_password() -> str:
 async def update_password() -> str:
     pw = await gen_password()
     pw_dict = {'employee_password': pw}
-    await set_json('data.json', pw_dict)
+    await set_json(pw_dict)
 
     return pw
 

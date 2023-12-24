@@ -2,21 +2,19 @@ from datetime import datetime
 
 import aiogram.utils.exceptions
 from aiogram import executor
-from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.types import PreCheckoutQuery
 from aiogram.types.message import ContentType
 
-import callbacks
-import commands
+from bot import callbacks, commands
 
-from menus import Basket, Product, EditMenu, Mail, Admin, Employees, MyOrders
-from config import bot, dp
-from functions import *
-from markups import *
-from messages import *
-from order_db import OrderDB
-from states import *
+from bot.callbacks import *
+from bot.config import bot, dp
+from bot.functions import *
+from bot.markups import *
+from bot.messages import *
+from database.order_db import OrderDB
+from bot.states import *
 
 
 @dp.message_handler(commands=['start', 'new'])
@@ -106,7 +104,7 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
     Login
     State of getting employee password
     """
-    data = await get_json('data.json')
+    data = await get_json()
     if message.text.upper() == data['employee_password']:
         await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         await update_password()
@@ -286,7 +284,7 @@ async def message_filter(message: types.Message):
 
 @dp.inline_handler(text='#menu')
 async def inline_h(query: types.InlineQuery):
-    data = await get_json('data.json')
+    data = await get_json()
 
     if data['is_bot_enabled']:
         item_list = []

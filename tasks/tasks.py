@@ -5,9 +5,9 @@ import asyncio
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 from celery import Celery
-from config import REDIS_HOST, REDIS_PORT, TIME_ZONE
-from order_db import OrderDB
-from config import bot
+from bot.config import REDIS_HOST, REDIS_PORT, TIME_ZONE
+from database.order_db import OrderDB
+from bot.config import bot
 
 
 celery_event_loop = asyncio.new_event_loop()

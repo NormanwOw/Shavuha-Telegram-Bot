@@ -1,9 +1,8 @@
 import os
 
-from dotenv import load_dotenv
 import aioredis
+from dotenv import load_dotenv
 from loguru import logger
-
 from aiogram import Dispatcher, Bot
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
@@ -29,8 +28,12 @@ REDIS_PORT = os.getenv('REDIS_PORT')
 DATABASE_URL = f'postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 SYNC_DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
-redis = aioredis.Redis(host=REDIS_HOST, port=int(REDIS_PORT), decode_responses=True)
 
 bot = Bot(API_TOKEN, parse_mode='HTML')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
+
+
+redis = aioredis.from_url(
+    f"redis://{REDIS_HOST}", encoding="utf-8", decode_responses=True
+)

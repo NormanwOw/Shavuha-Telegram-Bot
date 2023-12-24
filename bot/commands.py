@@ -1,12 +1,10 @@
-from callbacks import *
-from states import *
-from markups import *
-from order_db import OrderDB
-from menus import Admin
+from .states import *
+from .markups import *
+from bot.callbacks import *
 
 
 async def start_command(bot: Bot, message: types.Message):
-    state = await get_json('data.json')
+    state = await get_json()
     state = state['is_bot_enabled']
 
     if state:
