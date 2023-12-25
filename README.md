@@ -48,13 +48,17 @@ then
     </tr>
   </tbody>
 </table>
-____
-
+<hr />
 <img src="https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/df5b987e-879c-4155-b78d-97910855c5bf" alt="Page 1">
+<hr />
 <img src="https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/5372081a-6a5b-46fd-9293-12f3ba6eee31" alt="Page 2">
+<hr />
 <img src="https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/480a7480-03c8-4c04-88cd-be3ad71b79a3" alt="Page 3">
+<hr />
 <img src="https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/97ef51ee-58e3-46b8-9688-31467c615bff" alt="Page 4">
+<hr />
 <img src="https://github.com/NormanwOw/Shavuha-telegram-bot/assets/118648914/f1cf2914-b0e4-49fb-8428-a3348447417e" alt="Page 5">
+<hr />
 
 
 
