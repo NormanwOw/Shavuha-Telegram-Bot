@@ -8,9 +8,9 @@ from asyncio import sleep
 from aiogram import types
 from aiofile import async_open
 
-from database.order_db import OrderDB
-from .config import TIME_ZONE, logger
-from .messages import ERROR_F
+from database.order_db import database
+from bot.config import TIME_ZONE, logger
+from bot.messages import ERROR_F
 
 
 @logger.catch
@@ -66,7 +66,7 @@ async def generate_order_number() -> int:
     high = 10**7 - 1
     order_number = random.randint(low, high)
 
-    while await OrderDB.get_order_numbers(order_number):
+    while await database.get_order_numbers(order_number):
         order_number += 1
         if order_number > high:
             order_number = random.randint(low, high)
@@ -87,7 +87,7 @@ async def get_time():
 
 @logger.catch
 async def get_24h_orders_list(message):
-    orders_24 = await OrderDB.get_orders(1)
+    orders_24 = await database.get_orders(1)
     if len(orders_24) == 0:
         await message.answer('Список заказов пуст')
     else:
@@ -107,7 +107,7 @@ async def error_to_db(message: types.Message, bot):
     now = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = now.strftime('%d.%m.%Y')
     time = await get_time()
-    await OrderDB.insert_error(message.from_user.full_name, message.text, date, time[0])
+    await database.insert_error(message.from_user.full_name, message.text, date, time[0])
 
     await bot.send_message(
         chat_id=message.from_user.id,

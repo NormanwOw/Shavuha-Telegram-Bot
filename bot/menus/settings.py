@@ -26,17 +26,15 @@ class Settings(Menu):
 
         return ikb
 
-    @classmethod
-    async def show_page(cls, user_id: int, msg_id: int, bot: Bot):
+    async def show_page(self, user_id: int, msg_id: int, bot: Bot):
         await bot.edit_message_text(
             text=SETTINGS_TITLE,
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page()
+            reply_markup=await self.get_page()
         )
 
-    @classmethod
-    async def switch_state(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def switch_state(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         if 'off' in callback.data:
             await set_json({'is_bot_enabled': 0})
             await callback.answer('Приём заказов остановлен', show_alert=True)
@@ -47,11 +45,11 @@ class Settings(Menu):
         await bot.edit_message_reply_markup(
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page()
+            reply_markup=await self.get_page()
         )
 
-    @classmethod
-    async def change_main_image(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    @staticmethod
+    async def change_main_image(user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         await bot.edit_message_text(
             text='Отправьте изображение:',
             chat_id=user_id,
@@ -60,3 +58,6 @@ class Settings(Menu):
         )
         await ChangeMainImage.get_main_image.set()
         await callback.answer('Редактирование изображения')
+
+
+settings = Settings()

@@ -23,13 +23,12 @@ class Admin(Menu):
 
         return ikb
 
-    @classmethod
-    async def show_page(cls, user_id: int, msg_id: int, bot: Bot, show_stats: bool = False):
+    async def show_page(self, user_id: int, msg_id: int, bot: Bot, show_stats: bool = False):
         if show_stats:
-            avg_price = await cls.db.get_avg_order_price()
-            orders_day = await cls.db.get_orders_count_days(1)
-            orders_month = await cls.db.get_orders_count_days(30)
-            orders = await cls.db.get_orders_count()
+            avg_price = await self.db.get_avg_order_price()
+            orders_day = await self.db.get_orders_count_days(1)
+            orders_month = await self.db.get_orders_count_days(30)
+            orders = await self.db.get_orders_count()
             stats = f'\n ▫️ Заказов за 24 часа: {orders_day}' \
                     f'\n ▫️ Заказов за 30 дней: {orders_month}' \
                     f'\n ▫️ Всего заказов: {orders}' \
@@ -41,17 +40,20 @@ class Admin(Menu):
             text=ADMIN_TITLE + stats,
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page()
+            reply_markup=await self.get_page()
         )
 
-    @classmethod
-    async def get_xlsx(cls, user_id: int):
+    @staticmethod
+    async def get_xlsx(user_id: int):
         get_xlsx.delay(user_id)
 
-    @classmethod
-    async def get_error(cls, callback: CallbackQuery):
+    @staticmethod
+    async def get_error(callback: CallbackQuery):
         await callback.message.answer(
             text=ERROR_TITLE,
             reply_markup=ikb_cancel
         )
         await ErrorHandler.get_error.set()
+
+
+admin = Admin()

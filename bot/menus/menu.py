@@ -1,16 +1,15 @@
 from abc import ABC, abstractmethod
-from database.order_db import OrderDB
+from database.order_db import database
 
 
 class Menu(ABC):
-    db = OrderDB
 
-    @classmethod
+    db = database
+
     @abstractmethod
-    async def get_page(cls, *args):
+    async def get_page(self, *args):
         pass
 
-    @classmethod
     @abstractmethod
-    async def show_page(cls, *args):
+    async def show_page(self, *args):
         pass

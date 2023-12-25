@@ -12,10 +12,9 @@ from bot.states import *
 
 class Basket(Menu):
 
-    @classmethod
-    async def get_page(cls, user_id: int) -> InlineKeyboardMarkup:
-        prices = await cls.db.get_prices()
-        order = await cls.db.get_order_list(user_id)
+    async def get_page(self, user_id: int) -> InlineKeyboardMarkup:
+        prices = await self.db.get_prices()
+        order = await self.db.get_order_list(user_id)
         ikb = InlineKeyboardMarkup(row_width=3)
         total_price = 0
         try:
@@ -40,32 +39,30 @@ class Basket(Menu):
 
         return ikb
 
-    @classmethod
-    async def show_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot,
+    async def show_page(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot,
                         check_basket: bool = False):
         if check_basket:
-            if await cls.db.get_order_list(user_id) is None:
+            if await self.db.get_order_list(user_id) is None:
                 await callback.answer('Корзина пуста')
             else:
                 await bot.send_message(
                     chat_id=user_id,
-                    text=await cls.get_title(user_id),
-                    reply_markup=await cls.get_page(user_id)
+                    text=await self.get_title(user_id),
+                    reply_markup=await self.get_page(user_id)
                 )
         else:
             if 'del' in callback.data:
-                await cls.db.delete_comment(user_id)
+                await self.db.delete_comment(user_id)
                 await callback.answer('Комментарий удалён')
 
             await bot.edit_message_text(
-                text=await cls.get_title(user_id),
+                text=await self.get_title(user_id),
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.get_page(user_id)
+                reply_markup=await self.get_page(user_id)
             )
 
-    @classmethod
-    async def set_time_page(cls, user_id: int, hour: int, minute: int) -> InlineKeyboardMarkup:
+    async def set_time_page(self, user_id: int, hour: int, minute: int) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup(row_width=6)
         if hour > 23:
             hour -= 24
@@ -113,7 +110,7 @@ class Basket(Menu):
 
         ikb.add(InlineKeyboardButton('◀️', callback_data='prev_time_page'))
         ikb.insert(InlineKeyboardButton('▶️', callback_data='next_time_page'))
-        order_user_time = await cls.db.get_order_user_time(user_id)
+        order_user_time = await self.db.get_order_user_time(user_id)
         if order_user_time is not None:
             ikb.add(InlineKeyboardButton(f'[{order_user_time}] Отменить',
                                          callback_data='cancel_set_time'))
@@ -122,8 +119,7 @@ class Basket(Menu):
 
         return ikb
 
-    @classmethod
-    async def show_time_page(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def show_time_page(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         _, hour, minute = await get_time()
         if 'next' in callback.data:
             hour += 6
@@ -131,22 +127,21 @@ class Basket(Menu):
             await bot.edit_message_reply_markup(
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.set_time_page(user_id, hour, minute)
+                reply_markup=await self.set_time_page(user_id, hour, minute)
             )
 
         except aiogram.utils.exceptions.MessageNotModified:
             await callback.answer()
             return
 
-    @classmethod
-    async def get_title(cls, user_id: int) -> str:
+    async def get_title(self, user_id: int) -> str:
         title = '🛒 <b>Корзина</b>'
-        time = await cls.db.get_order_user_time(user_id)
-        comment = await cls.db.get_comment(user_id)
+        time = await self.db.get_order_user_time(user_id)
+        comment = await self.db.get_comment(user_id)
         if time is None:
             time = ''
         else:
-            time = '\n⏱ ' + await cls.db.get_order_user_time(user_id)
+            time = '\n⏱ ' + await self.db.get_order_user_time(user_id)
 
         if comment is None:
             comment = ''
@@ -155,8 +150,7 @@ class Basket(Menu):
 
         return title + time + comment
 
-    @classmethod
-    async def set_time(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def set_time(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         if callback.data == 'set_time':
             time, hour, minute = await get_time()
 
@@ -164,39 +158,37 @@ class Basket(Menu):
                 text=SET_TIME_MESSAGE,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.set_time_page(user_id, hour, minute)
+                reply_markup=await self.set_time_page(user_id, hour, minute)
             )
 
-            await cls.db.set_order_time(user_id, time)
+            await self.db.set_order_time(user_id, time)
 
         elif callback.data == 'cancel_set_time':
-            if await cls.db.get_order_user_time(user_id) is None:
+            if await self.db.get_order_user_time(user_id) is None:
                 await callback.answer()
                 return
 
-            await cls.db.set_order_user_time(user_id, None)
-            await cls.show_page(user_id, msg_id, callback, bot)
+            await self.db.set_order_user_time(user_id, None)
+            await self.show_page(user_id, msg_id, callback, bot)
 
             await callback.answer('Точное время отменено')
         else:
             time = callback.data[9:]
             await callback.answer(time)
-            await cls.db.set_order_user_time(user_id, time)
-            await cls.show_page(user_id, msg_id, callback, bot)
+            await self.db.set_order_user_time(user_id, time)
+            await self.show_page(user_id, msg_id, callback, bot)
 
-    @classmethod
-    async def get_comment_title(cls, user_id: int) -> str:
+    async def get_comment_title(self, user_id: int) -> str:
         title = '<b>✏ Комментарий к заказу</b>'
-        comment = await cls.db.get_comment(user_id)
+        comment = await self.db.get_comment(user_id)
         if comment is None:
             comment = ''
         else:
             comment = '\n ' + comment
         return title + comment
 
-    @classmethod
-    async def set_comment(cls, user_id: int, msg_id: int, bot: Bot):
-        if await cls.db.get_comment(user_id) is None:
+    async def set_comment(self, user_id: int, msg_id: int, bot: Bot):
+        if await self.db.get_comment(user_id) is None:
 
             await bot.send_message(
                 chat_id=user_id,
@@ -207,10 +199,10 @@ class Basket(Menu):
             await OrderComment.get_comment.set()
         else:
             await bot.edit_message_text(
-                text=await cls.get_comment_title(user_id),
+                text=await self.get_comment_title(user_id),
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.get_markup()
+                reply_markup=await self.get_markup()
             )
 
     @staticmethod
@@ -221,23 +213,22 @@ class Basket(Menu):
 
         return ikb
 
-    @classmethod
-    async def product_counter(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def product_counter(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[4:]
         if '!up' in callback.data:
             count = 1
         else:
             count = -1
-        await cls.db.add_order(user_id, {product: count})
+        await self.db.add_order(user_id, {product: count})
 
-        if await cls.db.get_temp_products_count(user_id) == 0:
-            await cls.db.clear_basket(user_id)
+        if await self.db.get_temp_products_count(user_id) == 0:
+            await self.db.clear_basket(user_id)
 
             await bot.edit_message_text(
                 text=EMPTY_BASKET,
                 chat_id=user_id,
                 message_id=msg_id,
-                reply_markup=await cls.get_page(user_id)
+                reply_markup=await self.get_page(user_id)
             )
 
             return
@@ -245,14 +236,13 @@ class Basket(Menu):
         await bot.edit_message_reply_markup(
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page(user_id)
+            reply_markup=await self.get_page(user_id)
         )
 
-    @classmethod
-    async def get_pay_invoice(cls, user_id: int, bot: Bot):
+    async def get_pay_invoice(self, user_id: int, bot: Bot):
         order_prices = []
-        order_list = await cls.db.get_order_list(user_id)
-        prices = await cls.db.get_prices()
+        order_list = await self.db.get_order_list(user_id)
+        prices = await self.db.get_prices()
         desc = ''
         p = ''
 
@@ -278,3 +268,6 @@ class Basket(Menu):
             prices=order_prices,
             need_shipping_address=False
         )
+
+
+basket = Basket()

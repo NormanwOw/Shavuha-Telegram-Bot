@@ -36,9 +36,10 @@ class MyOrders(Menu):
 
         return answer
 
-    @classmethod
-    async def show_page(cls, message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0):
-        user_orders = await cls.db.get_user_orders(message.from_user.id)
+    async def show_page(
+            self, message, bot: Bot, user_id: int, msg_id: int, selected_page: int = 0
+    ):
+        user_orders = await self.db.get_user_orders(message.from_user.id)
         user_orders_count = len(user_orders)
 
         if user_orders_count != 0:
@@ -52,30 +53,30 @@ class MyOrders(Menu):
 
                 if selected_page == 0:
                     await message.answer(
-                        text=await cls.get_page(
+                        text=await self.get_page(
                             last_page, selected_page, user_orders_count, user_orders
                         ),
-                        reply_markup=await cls.get_markup(total_pages, total_pages)
+                        reply_markup=await self.get_markup(total_pages, total_pages)
                     )
                 else:
                     await bot.edit_message_text(
-                        text=await cls.get_page(
+                        text=await self.get_page(
                             last_page, selected_page, user_orders_count, user_orders
                         ),
                         chat_id=user_id,
                         message_id=msg_id,
-                        reply_markup=await cls.get_markup(selected_page, total_pages)
+                        reply_markup=await self.get_markup(selected_page, total_pages)
                     )
             else:
                 if selected_page == 0:
-                    await message.answer(cls.get_page(
+                    await message.answer(self.get_page(
                         user_orders_count, selected_page, user_orders_count, user_orders
                     )
                     )
                 else:
                     await bot.send_message(
                         chat_id=user_id,
-                        text=cls.get_page(
+                        text=self.get_page(
                             user_orders_count, selected_page, user_orders_count, user_orders
                         )
                     )
@@ -94,14 +95,16 @@ class MyOrders(Menu):
 
         return ikb
 
-    @classmethod
-    async def pagination(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def pagination(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         data = callback.data.split()
         page = int(data[1])
         if 'prev' in callback.data:
             if page != 1:
-                await cls.show_page(callback, bot, user_id, msg_id, page - 1)
+                await self.show_page(callback, bot, user_id, msg_id, page - 1)
         else:
             total_pages = int(data[2])
             if page != total_pages:
-                await cls.show_page(callback, bot, user_id, msg_id, page + 1)
+                await self.show_page(callback, bot, user_id, msg_id, page + 1)
+
+
+my_orders = MyOrders()

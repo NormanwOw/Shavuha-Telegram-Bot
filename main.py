@@ -7,13 +7,11 @@ from aiogram.types import PreCheckoutQuery
 from aiogram.types.message import ContentType
 
 from bot import callbacks, commands
-
 from bot.callbacks import *
 from bot.config import bot, dp
 from bot.functions import *
 from bot.markups import *
 from bot.messages import *
-from database.order_db import OrderDB
 from bot.states import *
 
 
@@ -40,7 +38,7 @@ async def my_orders(message: types.Message):
     User handler
     Show order list
     """
-    await MyOrders.show_page(message, bot, message.from_user.id, message.message_id)
+    await my_orders.show_page(message, bot, message.from_user.id, message.message_id)
     await bot.delete_message(message.from_user.id, message.message_id)
 
 
@@ -74,7 +72,7 @@ async def employee_command(message: types.Message):
     Employee handler
     Show orders list or Login
     """
-    employees_list = await OrderDB.get_id_by_status('Повар')
+    employees_list = await database.get_id_by_status('Повар')
 
     if message.from_user.id in employees_list:
         await get_24h_orders_list(message)
@@ -91,9 +89,9 @@ async def check_admin_password_dialog(message: types.Message, state: FSMContext)
     State of getting admin password
     """
     if message.text == '123':
-        await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
+        await database.add_employee(message.from_user.id, message.from_user.full_name, 'Admin')
         await message.answer('Успешная авторизация', reply_markup=rkb_admin)
-        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
+        await message.answer(ADMIN_TITLE, reply_markup=await admin.get_page())
         await state.finish()
     await message.delete()
 
@@ -106,7 +104,7 @@ async def check_employee_password_dialog(message: types.Message, state: FSMConte
     """
     data = await get_json()
     if message.text.upper() == data['employee_password']:
-        await OrderDB.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
+        await database.add_employee(message.from_user.id, message.from_user.full_name, 'Повар')
         await update_password()
         await message.answer(EMPLOYEE_MESSAGE, reply_markup=rkb_employee)
         await state.finish()
@@ -120,12 +118,12 @@ async def change_product_desc(message: types.Message, state: FSMContext):
     State of getting new description
     """
     product = await ChangeProduct.get_product()
-    await OrderDB.set_product_desc(message.text, product)
+    await database.set_product_desc(message.text, product)
 
     await bot.send_message(
         chat_id=message.from_user.id,
         text='✅ Описание изменено\n\n' + EDIT_MENU_TITLE,
-        reply_markup=await EditMenu.get_page(False)
+        reply_markup=await edit_menu.get_page(False)
     )
 
     await state.finish()
@@ -146,8 +144,8 @@ async def change_product_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(EDIT_MENU_TITLE, reply_markup=await EditMenu.get_page(False))
-        await OrderDB.set_product_image(message.text, product)
+        await message.answer(EDIT_MENU_TITLE, reply_markup=await edit_menu.get_page(False))
+        await database.set_product_image(message.text, product)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
 
@@ -170,12 +168,12 @@ async def change_product_price(message: types.Message, state: FSMContext):
         for ch in message.text:
             if ch not in string.digits:
                 return
-        await OrderDB.set_product_price(int(message.text), await ChangeProduct.get_product())
+        await database.set_product_price(int(message.text), await ChangeProduct.get_product())
 
         await bot.send_message(
             chat_id=message.from_user.id,
             text='✅ Цена изменена\n\n' + EDIT_MENU_TITLE,
-            reply_markup=await EditMenu.get_page(False)
+            reply_markup=await edit_menu.get_page(False)
         )
 
         await state.finish()
@@ -188,7 +186,7 @@ async def add_product_name(message: types.Message):
     Add new product
     State of getting product name
     """
-    await EditMenu.add_name(message, bot)
+    await edit_menu.add_name(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_price)
@@ -197,7 +195,7 @@ async def add_product_price(message: types.Message):
     Add new product
     State of getting product price
     """
-    await EditMenu.add_price(message, bot)
+    await edit_menu.add_price(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_desc)
@@ -206,7 +204,7 @@ async def add_product_desc(message: types.Message):
     Add new product
     State of getting product description
     """
-    await EditMenu.add_desc(message, bot)
+    await edit_menu.add_desc(message, bot)
 
 
 @dp.message_handler(state=AddProduct.get_image)
@@ -215,7 +213,7 @@ async def add_product_image(message: types.Message, state: FSMContext):
     Add new product
     State of getting product image
     """
-    await EditMenu.add_image(message, bot, state)
+    await edit_menu.add_image(message, bot, state)
 
 
 @dp.message_handler(state=ChangeMainImage.get_main_image)
@@ -231,8 +229,8 @@ async def change_main_image(message: types.Message, state: FSMContext):
             '✅ Изображение установлено'
         )
 
-        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
-        await OrderDB.set_url('main_image', message.text)
+        await message.answer(ADMIN_TITLE, reply_markup=await admin.get_page())
+        await database.set_url('main_image', message.text)
         await state.finish()
     except aiogram.utils.exceptions.BadRequest:
 
@@ -251,14 +249,14 @@ async def set_comment(message: types.Message, state: FSMContext):
     Order comment
     State of getting comment for order
     """
-    await OrderDB.set_comment(message.from_user.id, message.text)
+    await database.set_comment(message.from_user.id, message.text)
     await state.finish()
     await message.delete()
 
     await bot.send_message(
         chat_id=message.from_user.id,
-        text=await Basket.get_title(message.from_user.id),
-        reply_markup=await Basket.get_page(message.from_user.id)
+        text=await basket.get_title(message.from_user.id),
+        reply_markup=await basket.get_page(message.from_user.id)
     )
 
 
@@ -269,17 +267,17 @@ async def get_mail_msg(message: types.Message, state: FSMContext):
     State of getting new mail
     """
     if len(message.text) > 5:
-        await OrderDB.insert_mail(message.text)
-        mail_id, mail_text = await OrderDB.get_mail()
+        await database.insert_mail(message.text)
+        mail_id, mail_text = await database.get_mail()
         await state.finish()
-        await message.answer(mail_text, reply_markup=await Mail.my_mails(int(mail_id)))
+        await message.answer(mail_text, reply_markup=await mail.my_mails(int(mail_id)))
     await message.delete()
 
 
 @dp.message_handler()
 async def message_filter(message: types.Message):
     """Handler of product name and other messages"""
-    await Product.show_page(message, bot)
+    await products.show_page(message, bot)
 
 
 @dp.inline_handler(text='#menu')
@@ -288,7 +286,7 @@ async def inline_h(query: types.InlineQuery):
 
     if data['is_bot_enabled']:
         item_list = []
-        prices = await OrderDB.get_prices()
+        prices = await database.get_prices()
         for product in prices:
             product = list(product)
             if query.chat_type == 'sender':
@@ -343,7 +341,7 @@ async def successful_payment(message: types.Message):
     price = int(int(message.successful_payment.total_amount) / 100)
     date = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
     date = date.strftime("%d.%m.%Y")
-    time = await OrderDB.get_order_time(message.from_user.id)
+    time = await database.get_order_time(message.from_user.id)
     cur = message.successful_payment.currency
     payload = message.successful_payment.invoice_payload
     order_list = payload
@@ -351,8 +349,8 @@ async def successful_payment(message: types.Message):
     for ch in ['{', '}', '\'', '"']:
         order_list = order_list.replace(ch, '')
 
-    comment = await OrderDB.get_comment(message.from_user.id)
-    order_user_time = await OrderDB.get_order_user_time(message.from_user.id)
+    comment = await database.get_comment(message.from_user.id)
+    order_user_time = await database.get_order_user_time(message.from_user.id)
     msg = SUCCESSFUL_MESSAGE.format(order_number=order_number, cur=cur, amount=str(price))
 
     await bot.send_message(
@@ -360,7 +358,7 @@ async def successful_payment(message: types.Message):
         text=msg
     )
 
-    await OrderDB.clear_basket(message.from_user.id)
+    await database.clear_basket(message.from_user.id)
 
     if order_user_time is not None:
         result_time = order_user_time
@@ -369,7 +367,7 @@ async def successful_payment(message: types.Message):
         result_time = time
         user_time_str = ''
 
-    await OrderDB.insert_to_orders(
+    await database.insert_to_orders(
         message.from_user.id, order_number, order_list, comment, price, result_time
     )
 
@@ -385,7 +383,7 @@ async def successful_payment(message: types.Message):
          }
     )
 
-    await Employees.send_order_to_employees(
+    await employees.send_order_to_employees(
         comment, payload, bot, order_number, user_time_str, price, date, time
     )
 

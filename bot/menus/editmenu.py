@@ -12,13 +12,13 @@ from bot.states import *
 
 class EditMenu(Menu):
 
-    product_list = []
+    def __init__(self):
+        self.product_list = []
 
-    @classmethod
-    async def get_page(cls, del_product: bool, page: int = 1) -> InlineKeyboardMarkup:
+    async def get_page(self, del_product: bool, page: int = 1) -> InlineKeyboardMarkup:
         rows = 6
         ikb = InlineKeyboardMarkup(row_width=3)
-        prices_list = await cls.db.get_prices()
+        prices_list = await self.db.get_prices()
         prices_list_rows = prices_list[rows * page - rows:rows * page]
         next_page_len = len(prices_list) - rows * page
 
@@ -62,9 +62,8 @@ class EditMenu(Menu):
 
         return ikb
 
-    @classmethod
     async def show_page(
-            cls, user_id: int, msg_id: int, bot: Bot, show_help: bool = False,
+            self, user_id: int, msg_id: int, bot: Bot, show_help: bool = False,
             del_product: bool = False, page: int = 1
     ):
         msg_help = MENU_HELP if show_help else ''
@@ -73,11 +72,11 @@ class EditMenu(Menu):
             text=EDIT_MENU_TITLE + msg_help,
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page(del_product, page)
+            reply_markup=await self.get_page(del_product, page)
         )
 
-    @classmethod
-    async def change_desc(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+    @staticmethod
+    async def change_desc(user_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[12:]
         await ChangeProduct.set_product(product)
         await ChangeProduct.get_new_desc.set()
@@ -90,8 +89,8 @@ class EditMenu(Menu):
 
         await callback.answer('Редактирование описания')
 
-    @classmethod
-    async def change_image(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+    @staticmethod
+    async def change_image(user_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[13:]
         await ChangeProduct.set_product(product)
         await ChangeProduct.get_new_product_image.set()
@@ -104,8 +103,8 @@ class EditMenu(Menu):
 
         await callback.answer('Редактирование изображения')
 
-    @classmethod
-    async def change_price(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+    @staticmethod
+    async def change_price(user_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[13:]
         await ChangeProduct.set_product(product)
         await ChangeProduct.get_new_price.set()
@@ -118,8 +117,8 @@ class EditMenu(Menu):
 
         await callback.answer('Редактирование цены')
 
-    @classmethod
-    async def add_product(cls, user_id: int, callback: CallbackQuery, bot: Bot):
+    @staticmethod
+    async def add_product(user_id: int, callback: CallbackQuery, bot: Bot):
         await bot.send_message(
             chat_id=user_id,
             text='Введите название товара:',
@@ -129,40 +128,37 @@ class EditMenu(Menu):
         await AddProduct.get_name.set()
         await callback.answer('Добавление товара')
 
-    @classmethod
-    async def delete_product(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def delete_product(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         product = callback.data[15:]
-        await cls.db.delete_product(product)
-        await cls.show_page(user_id, msg_id, bot)
+        await self.db.delete_product(product)
+        await self.show_page(user_id, msg_id, bot)
         await callback.answer(f'Товар удалён', show_alert=True)
 
-    @classmethod
-    async def pagination(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def pagination(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         del_product = True if 'True' in callback.data else False
         data = callback.data.split()
         page = int(data[1])
         next_page_len = int(data[2])
 
         if 'next' in callback.data and next_page_len > 0:
-            await cls.show_page(user_id, msg_id, bot, del_product=del_product, page=page + 1)
+            await self.show_page(user_id, msg_id, bot, del_product=del_product, page=page + 1)
 
         elif 'prev' in callback.data and page != 1:
-            await cls.show_page(user_id, msg_id, bot, del_product=del_product, page=page - 1)
+            await self.show_page(user_id, msg_id, bot, del_product=del_product, page=page - 1)
 
-    @classmethod
-    async def add_image(cls, message: types.Message, bot: Bot, state: FSMContext):
+    async def add_image(self, message: types.Message, bot: Bot, state: FSMContext):
         try:
             await bot.send_photo(message.from_user.id, message.text)
 
             await bot.send_message(
                 message.from_user.id,
                 '✅ Товар добавлен\n\n' + EDIT_MENU_TITLE,
-                reply_markup=await cls.get_page(False)
+                reply_markup=await self.get_page(False)
             )
 
-            cls.product_list.append(message.text)
-            await OrderDB.add_product(cls.product_list)
-            cls.product_list.clear()
+            self.product_list.append(message.text)
+            await self.db.add_product(self.product_list)
+            self.product_list.clear()
             await state.finish()
         except aiogram.utils.exceptions.BadRequest:
 
@@ -174,9 +170,8 @@ class EditMenu(Menu):
 
         await message.delete()
 
-    @classmethod
-    async def add_desc(cls, message: types.Message, bot: Bot):
-        cls.product_list.append(message.text)
+    async def add_desc(self, message: types.Message, bot: Bot):
+        self.product_list.append(message.text)
 
         await bot.send_message(
             message.from_user.id,
@@ -187,8 +182,7 @@ class EditMenu(Menu):
         await AddProduct.get_image.set()
         await message.delete()
 
-    @classmethod
-    async def add_price(cls, message: types.Message, bot: Bot):
+    async def add_price(self, message: types.Message, bot: Bot):
         try:
             if int(message.text) >= 0:
                 await bot.send_message(
@@ -197,14 +191,13 @@ class EditMenu(Menu):
                     reply_markup=ikb_cancel
                 )
 
-                cls.product_list.append(int(message.text))
+                self.product_list.append(int(message.text))
                 await AddProduct.get_desc.set()
         except ValueError:
             pass
         await message.delete()
 
-    @classmethod
-    async def add_name(cls, message: types.Message, bot: Bot):
+    async def add_name(self, message: types.Message, bot: Bot):
         if len(message.text) > 1:
             await bot.send_message(
                 message.from_user.id,
@@ -212,10 +205,12 @@ class EditMenu(Menu):
                 reply_markup=ikb_cancel
             )
 
-            cls.product_list.append(message.text)
+            self.product_list.append(message.text)
             await AddProduct.get_price.set()
         await message.delete()
 
-    @classmethod
-    async def get_product_list(cls):
-        return cls.product_list
+    async def get_product_list(self):
+        return self.product_list
+
+
+edit_menu = EditMenu()

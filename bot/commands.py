@@ -1,6 +1,7 @@
-from .states import *
-from .markups import *
+from bot.states import *
+from bot.markups import *
 from bot.callbacks import *
+from bot.menus.admin import admin
 
 
 async def start_command(bot: Bot, message: types.Message):
@@ -10,25 +11,25 @@ async def start_command(bot: Bot, message: types.Message):
     if state:
         await bot.send_photo(
             chat_id=message.from_user.id,
-            photo=await OrderDB.get_url('main_image'),
+            photo=await database.get_url('main_image'),
             caption=MAIN_PAGE, reply_markup=ikb_main
         )
 
-        await OrderDB.clear_basket(message.from_user.id)
+        await database.clear_basket(message.from_user.id)
     else:
         await bot.send_message(
             chat_id=message.from_user.id,
             text=PAUSE_MESSAGE
         )
 
-    await OrderDB.delete_temp(message.from_user.id)
+    await database.delete_temp(message.from_user.id)
     await message.delete()
 
 
 async def admin_login(message: types.Message):
-    adm_list = await OrderDB.get_id_by_status('Admin')
+    adm_list = await database.get_id_by_status('Admin')
     if message.from_user.id in adm_list:
-        await message.answer(ADMIN_TITLE, reply_markup=await Admin.get_page())
+        await message.answer(ADMIN_TITLE, reply_markup=await admin.get_page())
     else:
         await Login.admin_password.set()
         await message.answer('Введите пароль:', reply_markup=ikb_cancel)

@@ -6,7 +6,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment
 from celery import Celery
 from bot.config import REDIS_HOST, REDIS_PORT, TIME_ZONE
-from database.order_db import OrderDB
+from database.order_db import database
 from bot.config import bot
 
 
@@ -28,7 +28,7 @@ async def xlsx(user_id: int):
         cell.style = 'Accent1'
         cell.alignment = Alignment(horizontal='center')
 
-    orders = await OrderDB.get_all_from_orders()
+    orders = await database.get_all_from_orders()
 
     for i, order in enumerate(orders):
         ws.append([order[i] for i in [1, 4, 3, 6, 7]])
@@ -53,8 +53,8 @@ async def xlsx(user_id: int):
 
 
 async def mail(user_id: int):
-    users = await OrderDB.get_all_user_id()
-    _, mail_text = await OrderDB.get_mail()
+    users = await database.get_all_user_id()
+    _, mail_text = await database.get_mail()
     if users:
         for user in users:
             await bot.send_message(
@@ -77,4 +77,3 @@ def get_xlsx(user_id: int):
 @celery.task
 def send_mail(user_id: int):
     celery_event_loop.run_until_complete(mail(user_id))
-

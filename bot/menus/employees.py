@@ -9,10 +9,9 @@ from bot.markups import *
 
 class Employees(Menu):
 
-    @classmethod
-    async def get_page(cls) -> InlineKeyboardMarkup:
+    async def get_page(self) -> InlineKeyboardMarkup:
         ikb = InlineKeyboardMarkup(row_width=3)
-        employees_list = await cls.db.get_id_name_by_status('Повар')
+        employees_list = await self.db.get_id_name_by_status('Повар')
         for employee in employees_list:
             ikb.add(InlineKeyboardButton('🚫', callback_data=f'delete_employee_{employee[0]}'))
             ikb.insert(InlineKeyboardButton(f'{employee[1]}', callback_data='None'))
@@ -23,8 +22,7 @@ class Employees(Menu):
 
         return ikb
 
-    @classmethod
-    async def show_page(cls, user_id: int, msg_id: int, bot: Bot,
+    async def show_page(self, user_id: int, msg_id: int, bot: Bot,
                         update_pw: bool = False, show_help: bool = False):
         if update_pw:
             pw = await update_password()
@@ -38,18 +36,16 @@ class Employees(Menu):
             text=EMPLOYEE_TITLE + f'\nПароль для персонала: <b>{pw}</b>{help_msg}',
             chat_id=user_id,
             message_id=msg_id,
-            reply_markup=await cls.get_page()
+            reply_markup=await self.get_page()
         )
 
-    @classmethod
-    async def delete(cls, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
+    async def delete(self, user_id: int, msg_id: int, callback: CallbackQuery, bot: Bot):
         employee_id = int(callback.data[16:])
-        await cls.db.delete_employee(employee_id)
-        await cls.show_page(user_id, msg_id, bot)
+        await self.db.delete_employee(employee_id)
+        await self.show_page(user_id, msg_id, bot)
 
-    @classmethod
     async def send_order_to_employees(
-            cls, comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
+            self, comment: str, order_list: str, bot: Bot, order_number: int, user_time_str: str,
             price: int, date: str, time: str
     ):
 
@@ -60,7 +56,7 @@ class Employees(Menu):
 
         order = json.loads(order_list.replace('\'', '"'))
         order_str = ''
-        for employee in await cls.db.get_id_by_status('Повар'):
+        for employee in await self.db.get_id_by_status('Повар'):
             for product in order:
                 order_str += f'\n ▫️ {product}: {order[product]}'
 
@@ -71,3 +67,6 @@ class Employees(Menu):
                      f'{price}₽' + comm + f'\n\n'
                      f'{date} {time}'
             )
+
+
+employees = Employees()
