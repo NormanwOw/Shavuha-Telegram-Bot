@@ -27,7 +27,7 @@ then
 * `admin` - enter to the section of administration. Default password: '123'
 * `personal` - authorization of a new employee. After this authorization all orders will be sent to emloyee by Telegram. *The password is in the administration panel, new for each employee*
 
-## CARD for testing payment
+## CARD for testing payment (Sberbank)
 <table>
   <tbody>
     <tr>
