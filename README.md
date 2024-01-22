@@ -13,12 +13,10 @@ This is the bot for ordering and payment some products with inline mode, product
 
 ## Install
 To get started with this BOT you should to edit constants `API_TOKEN` and `PAY_TOKEN` in `.env-non-dev`.
-* `API_TOKEN` and `PAY_TOKEN` you can get from the [@BotFather](https://t.me/BotFather) in the Telegram application.  
+1. `API_TOKEN` and `PAY_TOKEN` you can get from the [@BotFather](https://t.me/BotFather) in the Telegram application.  
 More information about this you can find [here](https://core.telegram.org/bots/tutorial)  
 
-then
-
-* `docker-compose up -d --build`
+2. `$ docker-compose up -d`
 
 ## Commands
 * `/start`, `/new` - starting message with a 'new order' button
